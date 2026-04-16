@@ -1,0 +1,98 @@
+{
+  "requirement": {
+    "requirement_id": "GW-REQ-01",
+    "description": "The gateway ECU shall immediately receive and process all event-driven body and driver input signals, including horn requests, indicator commands, and door state changes.",
+    "can_message": {
+      "node": "Gateway",
+      "arbitration_id": "0x900",
+      "message_name": "GW_System_Overview",
+      "signals": [
+        {
+          "name": "GWS_Horn_Active",
+          "start_bit": 1,
+          "length": 1,
+          "byte_order": "little_endian",
+          "values": {
+            "0": "Horn inactive",
+            "1": "Horn active"
+          }
+        },
+        {
+          "name": "GWS_Indicator_State",
+          "start_bit": 28,
+          "length": 2,
+          "byte_order": "little_endian",
+          "values": {
+            "0": "OFF",
+            "1": "LEFT",
+            "2": "RIGHT",
+            "3": "HAZARD"
+          }
+        },
+        {
+          "name": "GWS_Any_Door_Open",
+          "start_bit": 0,
+          "length": 1,
+          "byte_order": "little_endian",
+          "values": {
+            "0": "No door open",
+            "1": "At least one door open"
+          }
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-001",
+      "test_objective": "Verify horn request ON is processed by Gateway ECU.",
+      "preconditions": [
+        "Ignition ON",
+        "CAN bus active",
+        "IC capable of sending horn request"
+      ],
+      "test_steps": [
+        "Turn ignition ON",
+        "Set IC_Horn_Request = 1",
+        "Monitor CAN ID 0x900",
+        "Extract GWS_Horn_Active"
+      ],
+      "expected_result": "GWS_Horn_Active = 1",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_001_horn_on(can_bus):\n    msgs = collect_messages(can_bus, GW_SYSTEM_OVERVIEW_ID)\n    assert msgs\n    for msg in msgs:\n        assert decode_gws_horn_active(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-002",
+      "test_objective": "Verify horn request OFF is processed by Gateway ECU.",
+      "preconditions": [
+        "Ignition ON",
+        "Horn previously active"
+      ],
+      "test_steps": [
+        "Set IC_Horn_Request = 0",
+        "Monitor GW_System_Overview message",
+        "Extract GWS_Horn_Active"
+      ],
+      "expected_result": "GWS_Horn_Active = 0",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_002_horn_off(can_bus):\n    msgs = collect_messages(can_bus, GW_SYSTEM_OVERVIEW_ID)\n    assert msgs\n    for msg in msgs:\n        assert decode_gws_horn_active(msg) == 0"
+    },
+    {
+      "test_case_id": "TC-GW-003",
+      "test_objective": "Verify LEFT indicator command propagation.",
+      "preconditions": [
+        "Ignition ON",
+        "IC operational"
+      ],
+      "test_steps": [
+        "Set IC_Turn_Command = LEFT",
+        "Monitor GW_System_Overview message",
+        "Extract GWS_Indicator_State"
+      ],
+      "expected_result": "GWS_Indicator_State = 1",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_003_indicator_left(can_bus):\n    msgs = collect_messages(can_bus, GW_SYSTEM_OVERVIEW_ID)\n    assert msgs\n    for msg in msgs:\n        assert decode_gws_indicator_state(msg) == 1"
+    }
+  ]
+}

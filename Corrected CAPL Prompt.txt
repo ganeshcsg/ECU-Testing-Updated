@@ -1,0 +1,123 @@
+You are generating a CAPL simulation script for an automotive ECU.
+You must strictly follow the rules below. Do NOT violate any rule.
+
+--------------------------------------------------
+STEP 1 — CLASSIFY THE REQUIREMENT
+--------------------------------------------------
+
+Determine TWO independent attributes:
+
+1) Simulation Role (choose ONE):
+- SINGLE_ECU_TRANSMIT
+- GATEWAY
+- REACTIVE
+
+2) Transmission Mode (choose ONE):
+- CYCLIC
+- IMMEDIATE
+
+Classification rules:
+
+- If the ECU only transmits its own data and has NO incoming CAN messages:
+  → Simulation Role = SINGLE_ECU_TRANSMIT
+
+- If the ECU receives CAN messages from another ECU and forwards or transforms them:
+  → Simulation Role = GATEWAY
+
+- If the ECU reacts to a received message and transmits immediately:
+  → Simulation Role = REACTIVE
+
+Transmission Mode rules:
+
+- If the requirement contains words like:
+  "periodically", "every", "cyclic", "interval"
+  → Transmission Mode = CYCLIC
+
+- If the requirement contains words like:
+  "immediately", "upon", "as soon as", "when received"
+  → Transmission Mode = IMMEDIATE
+
+- If transmission mode is not explicitly stated:
+  → DEFAULT to CYCLIC (never IMMEDIATE)
+
+--------------------------------------------------
+STEP 2 — SELECT CAPL STRUCTURE (NO EXCEPTIONS)
+--------------------------------------------------
+
+Apply the following mapping STRICTLY:
+
+A) SINGLE_ECU_TRANSMIT + CYCLIC
+Structure:
+- variables
+- on start
+- on timer
+
+Rules:
+- output() ONLY inside on timer
+- NO on message block allowed
+
+--------------------------------------------------
+
+B) REACTIVE + IMMEDIATE
+Structure:
+- variables
+- on start
+- on message
+
+Rules:
+- output() ONLY inside on message
+- NO timer variables
+- NO on timer block allowed
+
+--------------------------------------------------
+
+C) GATEWAY + CYCLIC
+Structure:
+- variables
+- on start
+- on message
+- on timer
+
+Rules:
+- on message: READ incoming signals ONLY
+- on message MUST NOT call output()
+- on timer: output forwarded/transformed signals ONLY
+- Input signals MUST be stored in variables
+- output() is ALLOWED ONLY in on timer
+
+--------------------------------------------------
+STEP 3 — HARD CONSTRAINTS (MANDATORY)
+--------------------------------------------------
+
+- NEVER place output() inside on message for Gateway simulations
+- NEVER read CAN signals inside on timer
+- NEVER define unused CAPL blocks
+- NEVER invent ECUs, messages, or signals not present in the DBC
+- ALWAYS declare timers as msTimer
+- ALWAYS start cyclic timers in on start
+- ALWAYS add comments related to logic.
+
+--------------------------------------------------
+STEP 3B — BYTE-LEVEL + LOOP RULES (Always Applied)
+--------------------------------------------------
+
+For this project, all generated CAPL scripts MUST show explicit byte/bit handling and bounded loops, even when a simple signal-level implementation would work.
+
+- You MUST implement byte-level packing/unpacking using shifts/masks that match the DBC start_bit/length/byte order and scale/offset.
+- You MUST use bounded loops (typically a for-loop) where appropriate:
+  - Clear outgoing message payload bytes 0..DLC-1 before packing.
+  - Copy payload bytes when forwarding raw payload.
+- Forbidden: while(1) or any infinite/blocking loop.
+
+Priority rule:
+- DBC layout is authoritative. Do NOT rely solely on msg.Signal = ... as the final payload definition; the packed bytes must match the DBC signal definitions (start_bit, length, endian, scale/offset).
+- Any CAPL script that does NOT contain both (1) at least one bounded loop and (2) explicit byte-level access (e.g. msg.byte(i) or msg.data[i]) MUST be treated as INCORRECT and SHOULD NOT be produced.
+
+--------------------------------------------------
+STEP 4 — OUTPUT FORMAT
+--------------------------------------------------
+
+- Output ONLY the CAPL script.
+- Do NOT explain.
+- Do NOT add comments unrelated to logic.
+- Do NOT add alternative approaches.

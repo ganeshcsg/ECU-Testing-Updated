@@ -1,0 +1,54 @@
+{
+  "requirement": {
+    "requirement_id": "REQ_01",
+    "description": "The BCM shall transmit the current hazard light status on the CAN bus.",
+    "can_messages": [
+      {
+        "node": "BCM",
+        "arbitration_id": "0x100",
+        "signal": "Hazard_Light_Status",
+        "bit": 0
+      }
+    ],
+    "python_test_setup": "import os\nimport time\nimport pytest\nimport can\n\nBCM_STATUS_ID = 0x100\n\n@pytest.fixture(scope=\"module\")\ndef can_bus():\n    bus = can.interface.Bus(interface=os.getenv('CAN_INTERFACE', 'vector'), channel=0, bitrate=500000)\n    yield bus\n    bus.shutdown()\n\ndef get_hazard_status(data_bytes: bytes) -> int:\n    return (data_bytes[0] >> 0) & 0x01\n\ndef collect_bcm_messages(bus, duration_sec=1.0):\n    msgs = []\n    start = time.time()\n    while time.time() - start < duration_sec:\n        msg = bus.recv(timeout=0.1)\n        if msg and msg.arbitration_id == BCM_STATUS_ID: msgs.append(msg)\n    return msgs"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-HZ-001",
+      "title": "Verify Hazard_Light_Status = 0 when OFF",
+      "precondition": "Ignition ON; Hazard switch OFF; Monitor CAN ID 0x100",
+      "steps": [
+        "Set ignition ON",
+        "Ensure hazard switch is OFF",
+        "Capture BCM_Status_1 for 1 second",
+        "Extract bit 0"
+      ],
+      "expected_result": "Hazard_Light_Status = 0 in all received frames; message transmitted periodically",
+      "python_test_script": "def test_tc_hz_001_hazard_off(can_bus):\n    msgs = collect_bcm_messages(can_bus, 1.0)\n    assert len(msgs) >= 5, 'Insufficient BCM messages'\n    assert all(get_hazard_status(m.data) == 0 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-HZ-002",
+      "title": "Verify Hazard_Light_Status = 1 when ON",
+      "precondition": "Ignition ON; CAN tool connected",
+      "steps": [
+        "Turn hazard switch ON",
+        "Capture BCM_Status_1 for 1 second",
+        "Decode Hazard_Light_Status"
+      ],
+      "expected_result": "Hazard_Light_Status = 1 in all frames; no corrupted frames",
+      "python_test_script": "def test_tc_hz_002_hazard_on(can_bus):\n    msgs = collect_bcm_messages(can_bus, 1.0)\n    assert len(msgs) >= 5, 'Insufficient BCM messages'\n    assert all(get_hazard_status(m.data) == 1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-HZ-003",
+      "title": "Verify immediate update on state change",
+      "precondition": "Ignition ON; Hazard initially OFF",
+      "steps": [
+        "Monitor BCM_Status_1",
+        "Toggle switch OFF -> ON",
+        "Observe next message"
+      ],
+      "expected_result": "Next BCM_Status_1 reflects status = 1 within one cycle",
+      "python_test_script": "def test_tc_hz_003_hazard_toggle(can_bus):\n    msgs = collect_bcm_messages(can_bus, 1.0)\n    assert any(get_hazard_status(m.data) == 1 for m in msgs)"
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "requirement": {
+    "requirement_id": "GW-REQ-07",
+    "description": "The gateway shall derive a consolidated turn activity status based on the evaluated turn indicator inputs.",
+    "can_messages": [
+      {
+        "node": "Gateway",
+        "arbitration_id": "0xC8",
+        "signal": "TurnActive",
+        "bit": 17
+      }
+    ],
+    "python_test_setup": "import os\nimport time\nimport pytest\nimport can\n\nGW_VEHICLE_STATUS_ID = 0xC8\n\n@pytest.fixture(scope=\"module\")\ndef can_bus():\n    bus = can.interface.Bus(interface=os.getenv('CAN_INTERFACE', 'socketcan'), channel=os.getenv('CAN_CHANNEL', 'can0'), bitrate=500000)\n    yield bus\n    bus.shutdown()\n\ndef decode_turn_active(data_bytes: bytes) -> int:\n    return (data_bytes[2] >> 1) & 0x01  # Bit 17\n\ndef collect_gw_messages(bus, duration_sec=2.0):\n    msgs = []\n    start = time.time()\n    while time.time() - start < duration_sec:\n        msg = bus.recv(timeout=0.1)\n        if msg and msg.arbitration_id == GW_VEHICLE_STATUS_ID:\n            msgs.append(msg)\n    return msgs"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-TURN-CON-001",
+      "title": "Verify consolidated turn activity when both indicators are inactive",
+      "precondition": "Ignition ON; LeftIndicator = 0; RightIndicator = 0; Monitor CAN ID 0xC8",
+      "steps": [
+        "Start vehicle ignition",
+        "Ensure both indicators inactive",
+        "Capture GW_VehicleStatus for 2 seconds",
+        "Extract TurnActive (bit 17)"
+      ],
+      "expected_result": "TurnActive = 0 in all frames",
+      "python_test_script": "def test_tc_gw_turn_con_001_all_inactive(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert len(msgs) >= 5\n    assert all(decode_turn_active(m.data) == 0 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-GW-TURN-CON-002",
+      "title": "Verify consolidated turn activity when left indicator is active",
+      "precondition": "Ignition ON; LeftIndicator = 1; RightIndicator = 0",
+      "steps": [
+        "Set LeftIndicator = 1",
+        "Monitor GW_VehicleStatus",
+        "Decode TurnActive"
+      ],
+      "expected_result": "TurnActive = 1",
+      "python_test_script": "def test_tc_gw_turn_con_002_left_active(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert len(msgs) >= 5\n    assert all(decode_turn_active(m.data) == 1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-GW-TURN-CON-003",
+      "title": "Verify consolidated turn activity when right indicator is active",
+      "precondition": "Ignition ON; LeftIndicator = 0; RightIndicator = 1",
+      "steps": [
+        "Set RightIndicator = 1",
+        "Monitor GW_VehicleStatus"
+      ],
+      "expected_result": "TurnActive = 1",
+      "python_test_script": "def test_tc_gw_turn_con_003_right_active(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert len(msgs) >= 5\n    assert all(decode_turn_active(m.data) == 1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-GW-TURN-CON-004",
+      "title": "Verify consolidated turn activity when both indicators are active",
+      "precondition": "Ignition ON; LeftIndicator = 1; RightIndicator = 1",
+      "steps": [
+        "Activate both indicators",
+        "Monitor GW_VehicleStatus"
+      ],
+      "expected_result": "TurnActive = 1",
+      "python_test_script": "def test_tc_gw_turn_con_004_both_active(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert len(msgs) >= 5\n    assert all(decode_turn_active(m.data) == 1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-GW-TURN-CON-005",
+      "title": "Verify consolidated turn activity updates on left indicator activation",
+      "precondition": "Ignition ON; Both indicators initially inactive",
+      "steps": [
+        "Ensure both indicators inactive",
+        "Activate left indicator",
+        "Monitor next GW_VehicleStatus message"
+      ],
+      "expected_result": "TurnActive transitions from 0 to 1 immediately",
+      "python_test_script": "def test_tc_gw_turn_con_005_transition_set(can_bus):\n    msgs = collect_gw_messages(can_bus, 3.0)\n    assert msgs\n    states = [decode_turn_active(m.data) for m in msgs]\n    assert 0 in states and 1 in states\n    assert states[-1] == 1"
+    },
+    {
+      "test_case_id": "TC-GW-TURN-CON-006",
+      "title": "Verify consolidated turn activity clears when both indicators are deactivated",
+      "precondition": "Ignition ON; At least one indicator active",
+      "steps": [
+        "Ensure one indicator active",
+        "Deactivate all indicators",
+        "Monitor GW_VehicleStatus"
+      ],
+      "expected_result": "TurnActive returns to 0",
+      "python_test_script": "def test_tc_gw_turn_con_006_transition_clear(can_bus):\n    msgs = collect_gw_messages(can_bus, 3.0)\n    assert msgs\n    states = [decode_turn_active(m.data) for m in msgs]\n    assert states[-1] == 0"
+    },
+    {
+      "test_case_id": "TC-GW-TURN-CON-007",
+      "title": "Verify consolidated turn activity remains asserted if one indicator remains active",
+      "precondition": "Ignition ON; Both indicators initially active",
+      "steps": [
+        "Activate both indicators",
+        "Deactivate only one indicator",
+        "Monitor GW_VehicleStatus"
+      ],
+      "expected_result": "TurnActive remains 1",
+      "python_test_script": "def test_tc_gw_turn_con_007_partial_active(can_bus):\n    msgs = collect_gw_messages(can_bus, 3.0)\n    assert len(msgs) >= 5\n    assert all(decode_turn_active(m.data) == 1 for m in msgs)"
+    }
+  ]
+}

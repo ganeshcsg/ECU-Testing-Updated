@@ -1,0 +1,106 @@
+{
+  "requirement": {
+    "requirement_id": "S-01",
+    "description": "The gateway shall periodically transmit an operational presence message on the CAN bus to indicate that it is active and functioning.",
+    "can_messages": [
+      {
+        "node": "Gateway",
+        "arbitration_id": "0x100",
+        "message_name": "GW_OperationalPresence",
+        "signals": [
+          {
+            "signal": "GW_AliveCounter",
+            "byte": 0
+          },
+          {
+            "signal": "GW_Status",
+            "byte": 1
+          }
+        ],
+        "dlc": 8
+      }
+    ],
+    "python_test_setup": "import os\nimport time\nimport pytest\nimport can\n\nGW_OPERATIONAL_PRESENCE_ID = 0x100\nGW_OPERATIONAL_PRESENCE_DLC = 8\n\n@pytest.fixture(scope=\"module\")\ndef can_bus():\n    bus = can.interface.Bus(\n        interface=os.getenv('CAN_INTERFACE', 'vector'),\n        channel=os.getenv('CAN_CHANNEL', 0),\n        bitrate=500000\n    )\n    yield bus\n    bus.shutdown()\n\ndef collect_gw_messages(bus, duration_sec=1.0):\n    msgs = []\n    start = time.time()\n    while time.time() - start < duration_sec:\n        msg = bus.recv(timeout=0.2)\n        if msg and msg.arbitration_id == GW_OPERATIONAL_PRESENCE_ID:\n            msgs.append(msg)\n    return msgs\n\ndef get_alive_counter(data_bytes: bytes) -> int:\n    return data_bytes[0]\n\ndef get_gateway_status(data_bytes: bytes) -> int:\n    return data_bytes[1]"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-OP-001",
+      "title": "Verify GW_OperationalPresence message is transmitted when Gateway is active",
+      "precondition": "Ignition ON; Gateway ECU operational; Monitor CAN ID 0x100",
+      "steps": [
+        "Switch ignition ON",
+        "Allow Gateway to boot",
+        "Monitor CAN bus"
+      ],
+      "expected_result": "GW_OperationalPresence message present on CAN bus",
+      "python_test_script": "def test_tc_gw_op_001_message_present(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert msgs, 'GW_OperationalPresence not detected'"
+    },
+    {
+      "test_case_id": "TC-GW-OP-002",
+      "title": "Verify GW_OperationalPresence is transmitted periodically",
+      "precondition": "Ignition ON; Gateway active",
+      "steps": [
+        "Capture GW_OperationalPresence for 5 seconds",
+        "Measure time gap between frames"
+      ],
+      "expected_result": "Messages transmitted periodically without excessive gaps",
+      "python_test_script": "def test_tc_gw_op_002_periodic(can_bus):\n    msgs = collect_gw_messages(can_bus, 5.0)\n    assert len(msgs) >= 3, 'Insufficient periodic messages detected'"
+    },
+    {
+      "test_case_id": "TC-GW-OP-003",
+      "title": "Verify GW_AliveCounter increments modulo 256",
+      "precondition": "Gateway active; CAN monitoring enabled",
+      "steps": [
+        "Capture consecutive frames",
+        "Extract GW_AliveCounter"
+      ],
+      "expected_result": "AliveCounter increments by 1 modulo 256",
+      "python_test_script": "def test_tc_gw_op_003_alive_counter(can_bus):\n    msgs = collect_gw_messages(can_bus, 3.0)\n    assert len(msgs) >= 2\n    for i in range(1, len(msgs)):\n        prev = get_alive_counter(msgs[i-1].data)\n        curr = get_alive_counter(msgs[i].data)\n        assert (curr - prev) % 256 == 1"
+    },
+    {
+      "test_case_id": "TC-GW-OP-004",
+      "title": "Verify GW_Status indicates operational state",
+      "precondition": "Gateway active",
+      "steps": [
+        "Monitor GW_OperationalPresence",
+        "Extract GW_Status"
+      ],
+      "expected_result": "GW_Status = 1 indicating active",
+      "python_test_script": "def test_tc_gw_op_004_status_active(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert msgs\n    for msg in msgs:\n        assert get_gateway_status(msg.data) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-OP-005",
+      "title": "Verify GW_OperationalPresence DLC is correct",
+      "precondition": "Gateway active",
+      "steps": [
+        "Capture GW_OperationalPresence frame",
+        "Check DLC"
+      ],
+      "expected_result": "DLC = 8 bytes",
+      "python_test_script": "def test_tc_gw_op_005_dlc(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert msgs\n    for msg in msgs:\n        assert msg.dlc == GW_OPERATIONAL_PRESENCE_DLC"
+    },
+    {
+      "test_case_id": "TC-GW-OP-006",
+      "title": "Verify GW_OperationalPresence stops when Gateway powers OFF",
+      "precondition": "Gateway active",
+      "steps": [
+        "Monitor transmission",
+        "Switch ignition OFF",
+        "Observe CAN bus"
+      ],
+      "expected_result": "GW_OperationalPresence stops transmitting",
+      "python_test_script": "def test_tc_gw_op_006_stop_on_power_off(can_bus):\n    msgs_before = collect_gw_messages(can_bus, 2.0)\n    assert msgs_before\n    time.sleep(3)\n    msgs_after = collect_gw_messages(can_bus, 2.0)\n    assert not msgs_after"
+    },
+    {
+      "test_case_id": "TC-GW-OP-007",
+      "title": "Verify GW_OperationalPresence resumes after restart",
+      "precondition": "Gateway powered OFF",
+      "steps": [
+        "Switch ignition ON",
+        "Monitor CAN bus"
+      ],
+      "expected_result": "GW_OperationalPresence resumes periodic transmission",
+      "python_test_script": "def test_tc_gw_op_007_resume_after_restart(can_bus):\n    time.sleep(3)\n    msgs = collect_gw_messages(can_bus, 3.0)\n    assert msgs"
+    }
+  ]
+}

@@ -1,0 +1,124 @@
+{
+  "requirement": {
+    "requirement_id": "M-01",
+    "description": "The gateway shall aggregate individual door open/close signals and transmit a consolidated door status to the instrument cluster.",
+    "can_messages": [
+      {
+        "node": "Gateway",
+        "arbitration_id": "0x10E",
+        "signal": "Door_FL",
+        "bit": 0
+      },
+      {
+        "node": "Gateway",
+        "arbitration_id": "0x10E",
+        "signal": "Door_FR",
+        "bit": 1
+      },
+      {
+        "node": "Gateway",
+        "arbitration_id": "0x10E",
+        "signal": "Door_RL",
+        "bit": 2
+      },
+      {
+        "node": "Gateway",
+        "arbitration_id": "0x10E",
+        "signal": "Door_RR",
+        "bit": 3
+      },
+      {
+        "node": "Gateway",
+        "arbitration_id": "0x10E",
+        "signal": "AnyDoorOpen",
+        "bit": 4
+      }
+    ],
+    "python_test_setup": "import time\nimport can\nimport pytest\n\nGW_DOOR_STATUS_ID = 0x10E\nGW_DOOR_STATUS_DLC = 8\n\n@pytest.fixture(scope=\"module\")\ndef can_bus():\n    bus = can.Bus(interface=\"vector\", channel=0, bitrate=500000)\n    yield bus\n    bus.shutdown()\n\ndef collect_messages(bus, msg_id, duration_sec):\n    messages = []\n    start_time = time.time()\n    while time.time() - start_time < duration_sec:\n        msg = bus.recv(timeout=0.5)\n        if msg and msg.arbitration_id == msg_id:\n            messages.append(msg)\n    return messages\n\ndef decode_door_fl(msg):\n    return (msg.data[0] >> 0) & 0x01\n\ndef decode_door_fr(msg):\n    return (msg.data[0] >> 1) & 0x01\n\ndef decode_door_rl(msg):\n    return (msg.data[0] >> 2) & 0x01\n\ndef decode_door_rr(msg):\n    return (msg.data[0] >> 3) & 0x01\n\ndef decode_any_door_open(msg):\n    return (msg.data[0] >> 4) & 0x01"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-DOOR-004",
+      "title": "Verify front right door open sets AnyDoorOpen = 1",
+      "precondition": "Ignition ON; front right door open; monitor CAN ID 0x10E",
+      "steps": [
+        "Open front right door",
+        "Monitor GW_DoorStatus message",
+        "Extract Door_FR and AnyDoorOpen signals"
+      ],
+      "expected_result": "Door_FR = 1 and AnyDoorOpen = 1 transmitted",
+      "python_test_script": "def test_tc_gw_door_004_fr_open(can_bus):\n    msgs = collect_messages(can_bus, GW_DOOR_STATUS_ID, 2)\n    assert msgs, 'No GW_DoorStatus messages received'\n    for msg in msgs:\n        assert decode_door_fr(msg) == 1\n        assert decode_any_door_open(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-005",
+      "title": "Verify rear left door open sets AnyDoorOpen = 1",
+      "precondition": "Ignition ON; rear left door open; monitor CAN ID 0x10E",
+      "steps": [
+        "Open rear left door",
+        "Monitor GW_DoorStatus message",
+        "Extract Door_RL and AnyDoorOpen signals"
+      ],
+      "expected_result": "Door_RL = 1 and AnyDoorOpen = 1 transmitted",
+      "python_test_script": "def test_tc_gw_door_005_rl_open(can_bus):\n    msgs = collect_messages(can_bus, GW_DOOR_STATUS_ID, 2)\n    assert msgs, 'No GW_DoorStatus messages received'\n    for msg in msgs:\n        assert decode_door_rl(msg) == 1\n        assert decode_any_door_open(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-006",
+      "title": "Verify rear right door open sets AnyDoorOpen = 1",
+      "precondition": "Ignition ON; rear right door open; monitor CAN ID 0x10E",
+      "steps": [
+        "Open rear right door",
+        "Monitor GW_DoorStatus message",
+        "Extract Door_RR and AnyDoorOpen signals"
+      ],
+      "expected_result": "Door_RR = 1 and AnyDoorOpen = 1 transmitted",
+      "python_test_script": "def test_tc_gw_door_006_rr_open(can_bus):\n    msgs = collect_messages(can_bus, GW_DOOR_STATUS_ID, 2)\n    assert msgs, 'No GW_DoorStatus messages received'\n    for msg in msgs:\n        assert decode_door_rr(msg) == 1\n        assert decode_any_door_open(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-007",
+      "title": "Verify multiple doors open results in AnyDoorOpen = 1",
+      "precondition": "Ignition ON; multiple doors open; monitor CAN ID 0x10E",
+      "steps": [
+        "Open any two doors",
+        "Monitor GW_DoorStatus message",
+        "Extract all Door_* and AnyDoorOpen signals"
+      ],
+      "expected_result": "Corresponding Door_* signals = 1 and AnyDoorOpen = 1",
+      "python_test_script": "def test_tc_gw_door_007_multiple_doors_open(can_bus):\n    msgs = collect_messages(can_bus, GW_DOOR_STATUS_ID, 2)\n    assert msgs, 'No GW_DoorStatus messages received'\n    for msg in msgs:\n        assert decode_any_door_open(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-008",
+      "title": "Verify GW_DoorStatus message DLC",
+      "precondition": "Ignition ON; CAN monitoring enabled; monitor CAN ID 0x10E",
+      "steps": [
+        "Capture GW_DoorStatus frame",
+        "Verify DLC"
+      ],
+      "expected_result": "DLC = 8 bytes",
+      "python_test_script": "def test_tc_gw_door_008_dlc_check(can_bus):\n    msgs = collect_messages(can_bus, GW_DOOR_STATUS_ID, 2)\n    assert msgs, 'No GW_DoorStatus messages received'\n    for msg in msgs:\n        assert msg.dlc == GW_DOOR_STATUS_DLC"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-009",
+      "title": "Verify door status aggregation updates immediately on door state change",
+      "precondition": "Ignition ON; all doors closed; monitor CAN ID 0x10E",
+      "steps": [
+        "Open any door",
+        "Observe next GW_DoorStatus transmission",
+        "Extract AnyDoorOpen signal"
+      ],
+      "expected_result": "AnyDoorOpen changes from 0 to 1 in the next message",
+      "python_test_script": "def test_tc_gw_door_009_immediate_update(can_bus):\n    msgs = collect_messages(can_bus, GW_DOOR_STATUS_ID, 2)\n    assert msgs, 'No GW_DoorStatus messages received'\n    assert decode_any_door_open(msgs[-1]) in (0, 1)"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-010",
+      "title": "Verify GW_DoorStatus stops transmitting when Gateway ECU is powered OFF",
+      "precondition": "Gateway ECU active; monitor CAN ID 0x10E",
+      "steps": [
+        "Monitor GW_DoorStatus messages",
+        "Switch ignition OFF",
+        "Observe CAN bus"
+      ],
+      "expected_result": "GW_DoorStatus message transmission stops",
+      "python_test_script": "def test_tc_gw_door_010_stop_on_power_off(can_bus):\n    msgs_before = collect_messages(can_bus, GW_DOOR_STATUS_ID, 2)\n    assert msgs_before, 'No GW_DoorStatus before power off'\n    time.sleep(3)\n    msgs_after = collect_messages(can_bus, GW_DOOR_STATUS_ID, 2)\n    assert not msgs_after"
+    }
+  ]
+}

@@ -1,0 +1,139 @@
+{
+  "requirement": {
+    "requirement_id": "REQ-08",
+    "description": "When the driver presses the horn switch, the IC shall immediately transmit the horn switch status on the CAN bus.",
+    "can_messages": [
+      {
+        "node": "IC",
+        "arbitration_id": "0x300",
+        "signal": "Horn_Switch_Pressed",
+        "bit": 0
+      },
+      {
+        "node": "GW",
+        "arbitration_id": "0x400",
+        "signal": "GWS_Horn_Active",
+        "bit": 17
+      }
+    ],
+    "python_test_setup": "import os\nimport time\nimport pytest\nimport can\n\nIC_MSG_ID = 0x300\nGW_MSG_ID = 0x400\n\n@pytest.fixture(scope=\"session\")\ndef can_bus():\n    bus = can.Bus(interface=os.getenv(\"CAN_INTERFACE\", \"socketcan\"), channel=os.getenv(\"CAN_CHANNEL\", \"can0\"), bitrate=500000)\n    yield bus\n    bus.shutdown()\n\ndef get_bit(data: bytes, bit: int) -> int:\n    byte_idx = bit // 8\n    bit_off = bit % 8\n    return (data[byte_idx] >> bit_off) & 0x01\n\ndef wait_for_message(bus, msg_id, timeout=2.0):\n    start = time.time()\n    while time.time() - start < timeout:\n        msg = bus.recv(timeout=0.05)\n        if msg and msg.arbitration_id == msg_id:\n            return msg\n    raise AssertionError(f\"Timeout waiting for message {hex(msg_id)}\")\n\ndef collect_messages(bus, msg_id, duration):\n    msgs = []\n    end = time.time() + duration\n    while time.time() < end:\n        m = bus.recv(timeout=0.05)\n        if m and m.arbitration_id == msg_id: msgs.append(m)\n    return msgs"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-HRN-001",
+      "title": "Verify Horn_Switch_Pressed = 1 when pressed",
+      "precondition": "Ignition ON; CAN tool connected; monitoring CAN ID 0x300",
+      "steps": [
+        "Turn ignition ON",
+        "Press horn switch",
+        "Monitor IC_Driver_Inputs message",
+        "Extract Horn_Switch_Pressed from bit 0"
+      ],
+      "expected_result": "Horn_Switch_Pressed = 1 is transmitted immediately",
+      "python_test_script": "def test_tc_hrn_001_horn_pressed(can_bus):\n    msg = wait_for_message(can_bus, IC_MSG_ID, timeout=2.0)\n    value = get_bit(msg.data, 0)\n    assert value == 1, f\"Expected Horn_Switch_Pressed=1, got {value}\""
+    },
+    {
+      "test_case_id": "TC-HRN-002",
+      "title": "Verify Horn_Switch_Pressed = 0 when released",
+      "precondition": "Ignition ON; CAN tool connected; monitoring CAN ID 0x300",
+      "steps": [
+        "Turn ignition ON",
+        "Ensure horn is released",
+        "Monitor IC_Driver_Inputs",
+        "Read Horn_Switch_Pressed"
+      ],
+      "expected_result": "Horn_Switch_Pressed = 0 is transmitted",
+      "python_test_script": "def test_tc_hrn_002_horn_released(can_bus):\n    msg = wait_for_message(can_bus, IC_MSG_ID, timeout=2.0)\n    value = get_bit(msg.data, 0)\n    assert value == 0, f\"Expected Horn_Switch_Pressed=0, got {value}\""
+    },
+    {
+      "test_case_id": "TC-HRN-003",
+      "title": "Verify immediate transition from 0 → 1",
+      "precondition": "Ignition ON; horn initially released",
+      "steps": [
+        "Monitor Horn_Switch_Pressed continuously",
+        "Press horn",
+        "Observe next CAN frame"
+      ],
+      "expected_result": "Value changes from 0 to 1 in the next transmitted frame",
+      "python_test_script": "def test_tc_hrn_003_press_transition(can_bus):\n    baseline = wait_for_message(can_bus, IC_MSG_ID, timeout=2.0)\n    assert get_bit(baseline.data, 0) == 0\n    next_msg = wait_for_message(can_bus, IC_MSG_ID, timeout=2.0)\n    assert get_bit(next_msg.data, 0) == 1"
+    },
+    {
+      "test_case_id": "TC-HRN-004",
+      "title": "Verify immediate transition from 1 → 0",
+      "precondition": "Ignition ON; horn initially pressed",
+      "steps": [
+        "Monitor Horn_Switch_Pressed",
+        "Release horn",
+        "Observe next CAN frame"
+      ],
+      "expected_result": "Value changes from 1 to 0 immediately",
+      "python_test_script": "def test_tc_hrn_004_release_transition(can_bus):\n    baseline = wait_for_message(can_bus, IC_MSG_ID, timeout=2.0)\n    assert get_bit(baseline.data, 0) == 1\n    next_msg = wait_for_message(can_bus, IC_MSG_ID, timeout=2.0)\n    assert get_bit(next_msg.data, 0) == 0"
+    },
+    {
+      "test_case_id": "TC-HRN-005",
+      "title": "Verify signal stability while horn remains pressed",
+      "precondition": "Ignition ON",
+      "steps": [
+        "Press horn continuously for 5 seconds",
+        "Capture all IC_Driver_Inputs frames"
+      ],
+      "expected_result": "Horn_Switch_Pressed remains consistently 1 in all frames",
+      "python_test_script": "def test_tc_hrn_005_stability_pressed(can_bus):\n    msgs = collect_messages(can_bus, IC_MSG_ID, duration=5.0)\n    assert all(get_bit(m.data, 0) == 1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-HRN-006",
+      "title": "Verify signal stability while horn remains released",
+      "precondition": "Ignition ON",
+      "steps": [
+        "Do not press horn for 5 seconds",
+        "Capture IC_Driver_Inputs frames"
+      ],
+      "expected_result": "Horn_Switch_Pressed always remains 0",
+      "python_test_script": "def test_tc_hrn_006_stability_released(can_bus):\n    msgs = collect_messages(can_bus, IC_MSG_ID, duration=5.0)\n    assert all(get_bit(m.data, 0) == 0 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-HRN-007",
+      "title": "Verify no invalid values transmitted",
+      "precondition": "Ignition ON",
+      "steps": [
+        "Monitor Horn_Switch_Pressed for 100 frames"
+      ],
+      "expected_result": "Only values 0 or 1 are observed",
+      "python_test_script": "def test_tc_hrn_007_no_invalid_values(can_bus):\n    msgs = collect_messages(can_bus, IC_MSG_ID, duration=3.0)\n    assert all(get_bit(m.data, 0) in (0, 1) for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-HRN-008",
+      "title": "Verify GW propagates horn active to GWS_Horn_Active",
+      "precondition": "Ignition ON; GW active; monitor CAN ID 0x400",
+      "steps": [
+        "Press horn",
+        "Monitor GW_Consolidated_Status",
+        "Extract GWS_Horn_Active bit 17"
+      ],
+      "expected_result": "GWS_Horn_Active = 1",
+      "python_test_script": "def test_tc_hrn_008_gw_active(can_bus):\n    msg = wait_for_message(can_bus, GW_MSG_ID, timeout=2.0)\n    val = get_bit(msg.data, 17)\n    assert val == 1, f\"Expected GWS_Horn_Active=1, got {val}\""
+    },
+    {
+      "test_case_id": "TC-HRN-009",
+      "title": "Verify GW clears GWS_Horn_Active when horn released",
+      "precondition": "Horn initially pressed",
+      "steps": [
+        "Release horn",
+        "Monitor GWS_Horn_Active"
+      ],
+      "expected_result": "Signal becomes 0 immediately",
+      "python_test_script": "def test_tc_hrn_009_gw_inactive(can_bus):\n    msg = wait_for_message(can_bus, GW_MSG_ID, timeout=2.0)\n    val = get_bit(msg.data, 17)\n    assert val == 0, f\"Expected GWS_Horn_Active=0, got {val}\""
+    },
+    {
+      "test_case_id": "TC-HRN-010",
+      "title": "Verify multiple press/release cycles correctly transmit",
+      "precondition": "Ignition ON",
+      "steps": [
+        "Press/release horn 10 times",
+        "Capture signal transitions"
+      ],
+      "expected_result": "Each press = 1; each release = 0 with no missed transitions",
+      "python_test_script": "def test_tc_hrn_010_multiple_cycles(can_bus):\n    msgs = collect_messages(can_bus, IC_MSG_ID, duration=5.0)\n    values = [get_bit(m.data, 0) for m in msgs]\n    transitions = sum(1 for i in range(1, len(values)) if values[i] != values[i - 1])\n    assert transitions >= 10"
+    }
+  ]
+}

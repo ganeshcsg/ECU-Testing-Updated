@@ -1,0 +1,110 @@
+{
+  "requirement": {
+    "requirement_id": "M-03",
+    "description": "The gateway shall immediately forward the brake warning signal when it becomes active.",
+    "can_messages": [
+      {
+        "node": "Gateway",
+        "arbitration_id": "0x110",
+        "signal": "BrakeWarningActive",
+        "bit": 0
+      }
+    ],
+    "python_test_setup": "import time\nimport can\nimport pytest\n\nGW_BRAKE_WARNING_ID = 0x110\nGW_BRAKE_WARNING_DLC = 8\n\n@pytest.fixture(scope=\"module\")\ndef can_bus():\n    bus = can.Bus(interface=\"vector\", channel=0, bitrate=500000)\n    yield bus\n    bus.shutdown()\n\ndef collect_messages(bus, msg_id, duration_sec):\n    messages = []\n    start_time = time.time()\n    while time.time() - start_time < duration_sec:\n        msg = bus.recv(timeout=0.5)\n        if msg and msg.arbitration_id == msg_id:\n            messages.append(msg)\n    return messages\n\ndef decode_brake_warning(msg):\n    return (msg.data[0] >> 0) & 0x01"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-BRK-001",
+      "title": "Verify GW_BrakeWarning message transmission",
+      "precondition": "Ignition ON; Gateway ECU powered; monitor CAN ID 0x110",
+      "steps": [
+        "Switch ignition ON",
+        "Allow Gateway ECU to boot",
+        "Monitor CAN bus for GW_BrakeWarning message"
+      ],
+      "expected_result": "GW_BrakeWarning message is present on the CAN bus",
+      "python_test_script": "def test_tc_gw_brk_001_message_present(can_bus):\n    msgs = collect_messages(can_bus, GW_BRAKE_WARNING_ID, 2)\n    assert msgs, 'GW_BrakeWarning message not received'"
+    },
+    {
+      "test_case_id": "TC-GW-BRK-002",
+      "title": "Verify brake warning inactive state is forwarded correctly",
+      "precondition": "Ignition ON; brake warning inactive; monitor CAN ID 0x110",
+      "steps": [
+        "Ensure brake warning input is inactive",
+        "Monitor GW_BrakeWarning message",
+        "Extract BrakeWarningActive signal"
+      ],
+      "expected_result": "BrakeWarningActive = 0 transmitted",
+      "python_test_script": "def test_tc_gw_brk_002_inactive_state(can_bus):\n    msgs = collect_messages(can_bus, GW_BRAKE_WARNING_ID, 2)\n    assert msgs, 'No GW_BrakeWarning messages received'\n    for msg in msgs:\n        assert decode_brake_warning(msg) == 0"
+    },
+    {
+      "test_case_id": "TC-GW-BRK-003",
+      "title": "Verify brake warning active state is forwarded immediately",
+      "precondition": "Ignition ON; brake warning inactive; monitor CAN ID 0x110",
+      "steps": [
+        "Activate brake warning input",
+        "Monitor CAN bus for next GW_BrakeWarning message",
+        "Extract BrakeWarningActive signal"
+      ],
+      "expected_result": "BrakeWarningActive = 1 transmitted immediately in the next message",
+      "python_test_script": "def test_tc_gw_brk_003_active_state(can_bus):\n    msgs = collect_messages(can_bus, GW_BRAKE_WARNING_ID, 2)\n    assert msgs, 'No GW_BrakeWarning messages received'\n    for msg in msgs:\n        assert decode_brake_warning(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-BRK-004",
+      "title": "Verify brake warning deactivation is forwarded correctly",
+      "precondition": "Ignition ON; brake warning active; monitor CAN ID 0x110",
+      "steps": [
+        "Deactivate brake warning input",
+        "Monitor GW_BrakeWarning message",
+        "Extract BrakeWarningActive signal"
+      ],
+      "expected_result": "BrakeWarningActive = 0 transmitted",
+      "python_test_script": "def test_tc_gw_brk_004_deactivation(can_bus):\n    msgs = collect_messages(can_bus, GW_BRAKE_WARNING_ID, 2)\n    assert msgs, 'No GW_BrakeWarning messages received'\n    for msg in msgs:\n        assert decode_brake_warning(msg) == 0"
+    },
+    {
+      "test_case_id": "TC-GW-BRK-005",
+      "title": "Verify brake warning does not toggle without input change",
+      "precondition": "Ignition ON; brake warning stable; monitor CAN ID 0x110",
+      "steps": [
+        "Monitor consecutive GW_BrakeWarning messages",
+        "Compare BrakeWarningActive values"
+      ],
+      "expected_result": "BrakeWarningActive remains constant across frames",
+      "python_test_script": "def test_tc_gw_brk_005_no_unintended_toggle(can_bus):\n    msgs = collect_messages(can_bus, GW_BRAKE_WARNING_ID, 3)\n    assert msgs, 'No GW_BrakeWarning messages received'\n    first = decode_brake_warning(msgs[0])\n    for msg in msgs:\n        assert decode_brake_warning(msg) == first"
+    },
+    {
+      "test_case_id": "TC-GW-BRK-006",
+      "title": "Verify GW_BrakeWarning message DLC",
+      "precondition": "Ignition ON; CAN monitoring enabled; monitor CAN ID 0x110",
+      "steps": [
+        "Capture GW_BrakeWarning frame",
+        "Verify DLC"
+      ],
+      "expected_result": "DLC = 8 bytes",
+      "python_test_script": "def test_tc_gw_brk_006_dlc_check(can_bus):\n    msgs = collect_messages(can_bus, GW_BRAKE_WARNING_ID, 2)\n    assert msgs, 'No GW_BrakeWarning messages received'\n    for msg in msgs:\n        assert msg.dlc == GW_BRAKE_WARNING_DLC"
+    },
+    {
+      "test_case_id": "TC-GW-BRK-007",
+      "title": "Verify brake warning is transmitted immediately on activation (no delay)",
+      "precondition": "Ignition ON; brake warning inactive; monitor CAN ID 0x110",
+      "steps": [
+        "Activate brake warning input",
+        "Measure time to first GW_BrakeWarning with active status"
+      ],
+      "expected_result": "BrakeWarningActive = 1 is transmitted in the first available CAN frame",
+      "python_test_script": "def test_tc_gw_brk_007_immediate_forwarding(can_bus):\n    msgs = collect_messages(can_bus, GW_BRAKE_WARNING_ID, 1)\n    assert msgs, 'No GW_BrakeWarning messages received'\n    assert decode_brake_warning(msgs[-1]) in (0, 1)"
+    },
+    {
+      "test_case_id": "TC-GW-BRK-008",
+      "title": "Verify GW_BrakeWarning message stops transmitting when Gateway ECU is powered OFF",
+      "precondition": "Gateway ECU active; monitor CAN ID 0x110",
+      "steps": [
+        "Monitor GW_BrakeWarning messages",
+        "Switch ignition OFF",
+        "Observe CAN bus"
+      ],
+      "expected_result": "GW_BrakeWarning message transmission stops",
+      "python_test_script": "def test_tc_gw_brk_008_stop_on_power_off(can_bus):\n    msgs_before = collect_messages(can_bus, GW_BRAKE_WARNING_ID, 2)\n    assert msgs_before, 'No GW_BrakeWarning before power off'\n    time.sleep(3)\n    msgs_after = collect_messages(can_bus, GW_BRAKE_WARNING_ID, 2)\n    assert not msgs_after"
+    }
+  ]
+}

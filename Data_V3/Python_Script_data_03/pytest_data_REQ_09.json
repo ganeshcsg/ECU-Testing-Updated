@@ -1,0 +1,146 @@
+{
+  "requirement": {
+    "requirement_id": "GW-REQ-04",
+    "description": "When a horn request is received from the instrument cluster, the gateway shall immediately reflect the horn active status on the vehicle network.",
+    "can_messages": [
+      {
+        "node": "IC",
+        "arbitration_id": "0x640",
+        "message_name": "IC_Driver_Command",
+        "dlc": 8,
+        "signals": [
+          {
+            "name": "IC_Horn_Request",
+            "start_bit": 0,
+            "length": 1,
+            "byte_order": "little_endian",
+            "values": {
+              "0": "OFF",
+              "1": "ON"
+            }
+          }
+        ]
+      },
+      {
+        "node": "GW",
+        "arbitration_id": "0x900",
+        "message_name": "GW_System_Overview",
+        "dlc": 8,
+        "signals": [
+          {
+            "name": "GWS_Horn_Active",
+            "start_bit": 1,
+            "length": 1,
+            "byte_order": "little_endian",
+            "values": {
+              "0": "INACTIVE",
+              "1": "ACTIVE"
+            }
+          }
+        ]
+      }
+    ]
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-HORN-001",
+      "test_objective": "Verify GW reflects horn active when IC horn request = 1.",
+      "preconditions": [
+        "Ignition ON",
+        "IC ECU active",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "IC transmits IC_Driver_Command (0x640)",
+        "Set IC_Horn_Request = 1",
+        "Monitor GW_System_Overview (0x900)",
+        "Decode bit 1 (GWS_Horn_Active)"
+      ],
+      "expected_result": "GWS_Horn_Active = 1 immediately after request",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_horn_001(can_bus):\n    msgs = collect_messages(can_bus, 0x900, 2)\n    assert msgs\n    for m in msgs:\n        assert decode_gws_horn_active(m) == 1"
+    },
+
+    {
+      "test_case_id": "TC-GW-HORN-002",
+      "test_objective": "Verify GW reflects horn inactive when IC horn request = 0.",
+      "preconditions": [
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "IC_Horn_Request = 0",
+        "Monitor GW_System_Overview",
+        "Decode bit 1"
+      ],
+      "expected_result": "GWS_Horn_Active = 0",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_horn_002(can_bus):\n    msgs = collect_messages(can_bus, 0x900, 2)\n    assert msgs\n    for m in msgs:\n        assert decode_gws_horn_active(m) == 0"
+    },
+
+    {
+      "test_case_id": "TC-GW-HORN-003",
+      "test_objective": "Verify immediate GW response to rising edge horn request.",
+      "preconditions": [
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "Toggle IC_Horn_Request 0 → 1",
+        "Capture first GW frame",
+        "Decode bit 1"
+      ],
+      "expected_result": "GWS_Horn_Active = 1 in first received GW frame",
+      "test_type": "Timing",
+      "python_test_script": "def test_tc_gw_horn_003(can_bus):\n    msgs = collect_messages(can_bus, 0x900, 1)\n    assert msgs\n    assert decode_gws_horn_active(msgs[0]) == 1"
+    },
+
+    {
+      "test_case_id": "TC-GW-HORN-004",
+      "test_objective": "Verify GW clears horn active after horn request deassertion.",
+      "preconditions": [
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "Set IC_Horn_Request = 1",
+        "Then set IC_Horn_Request = 0",
+        "Monitor GW frames",
+        "Decode bit 1"
+      ],
+      "expected_result": "Signal transitions 1 → 0",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_horn_004(can_bus):\n    msgs = collect_messages(can_bus, 0x900, 2)\n    values = [decode_gws_horn_active(m) for m in msgs]\n    assert 1 in values and 0 in values"
+    },
+
+    {
+      "test_case_id": "TC-GW-HORN-005",
+      "test_objective": "Verify GW ignores unrelated IC commands.",
+      "preconditions": [
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "Toggle IC_Turn_Command or other signals",
+        "Monitor GW_System_Overview",
+        "Decode bit 1"
+      ],
+      "expected_result": "GWS_Horn_Active remains unchanged",
+      "test_type": "Robustness",
+      "python_test_script": "def test_tc_gw_horn_005(can_bus):\n    msgs = collect_messages(can_bus, 0x900, 2)\n    values = [decode_gws_horn_active(m) for m in msgs]\n    assert len(set(values)) == 1"
+    },
+
+    {
+      "test_case_id": "TC-GW-HORN-006",
+      "test_objective": "Verify GW horn status remains valid across repeated messages.",
+      "preconditions": [
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "Continuously send IC_Horn_Request = 1",
+        "Capture multiple GW frames",
+        "Decode bit 1"
+      ],
+      "expected_result": "GWS_Horn_Active consistently = 1",
+      "test_type": "Stability",
+      "python_test_script": "def test_tc_gw_horn_006(can_bus):\n    msgs = collect_messages(can_bus, 0x900, 3)\n    assert msgs\n    for m in msgs:\n        assert decode_gws_horn_active(m) == 1"
+    }
+  ]
+}

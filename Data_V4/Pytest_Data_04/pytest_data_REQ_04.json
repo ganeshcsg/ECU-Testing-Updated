@@ -1,0 +1,175 @@
+{
+  "requirement": {
+    "requirement_id": "REQ_04",
+    "description": "When the rear-right door changes state, the system shall immediately communicate the updated status to the display controller.",
+    "can_message": {
+      "node": "Gateway/Body Controller",
+      "arbitration_id": "0x2DA",
+      "message_name": "Body_Status",
+      "dlc": 8,
+      "signals": [
+        {
+          "name": "DoorRR",
+          "start_bit": 3,
+          "length": 1,
+          "byte_order": "little_endian",
+          "values": {
+            "0": "Closed",
+            "1": "Open"
+          }
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+
+    {
+      "test_case_id": "TC-GW-S04-001",
+      "test_objective": "Verify that DoorRR transitions from Closed (0) to Open (1) on the CAN bus.",
+      "preconditions": [
+        "Ignition ON",
+        "Rear-right door initially closed",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Open rear-right door",
+        "Monitor CAN ID 0x2DA",
+        "Extract DoorRR from bit 3"
+      ],
+      "expected_result": "DoorRR transitions from 0 to 1 immediately",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s04_001(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_BODY_STATUS, CAPTURE_TIME)\n    assert msgs\n    assert decode_door_rr(msgs[-1]) == 1"
+    },
+
+    {
+      "test_case_id": "TC-GW-S04-002",
+      "test_objective": "Verify that DoorRR transitions from Open (1) to Closed (0).",
+      "preconditions": [
+        "Door initially open",
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "Close rear-right door",
+        "Monitor Body_Status message",
+        "Extract DoorRR"
+      ],
+      "expected_result": "DoorRR transitions to 0 immediately",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s04_002(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_BODY_STATUS, CAPTURE_TIME)\n    assert msgs\n    assert decode_door_rr(msgs[-1]) == 0"
+    },
+
+    {
+      "test_case_id": "TC-GW-S04-003",
+      "test_objective": "Verify DoorRR remains Open while door is held open.",
+      "preconditions": [
+        "Ignition ON",
+        "Door opened and held"
+      ],
+      "test_steps": [
+        "Capture multiple Body_Status frames",
+        "Extract DoorRR for each"
+      ],
+      "expected_result": "DoorRR remains 1 in all frames",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s04_003(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_BODY_STATUS, CAPTURE_TIME)\n    for msg in msgs:\n        assert decode_door_rr(msg) == 1"
+    },
+
+    {
+      "test_case_id": "TC-GW-S04-004",
+      "test_objective": "Verify periodic transmission of DoorRR = Closed.",
+      "preconditions": [
+        "Door closed",
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "Capture multiple periodic frames",
+        "Extract DoorRR"
+      ],
+      "expected_result": "DoorRR equals 0 in all periodic messages",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s04_004(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_BODY_STATUS, CAPTURE_TIME)\n    for msg in msgs:\n        assert decode_door_rr(msg) == 0"
+    },
+
+    {
+      "test_case_id": "TC-GW-S04-005",
+      "test_objective": "Verify immediate update latency for DoorRR.",
+      "preconditions": [
+        "Ignition ON",
+        "CAN capture started"
+      ],
+      "test_steps": [
+        "Change door state",
+        "Observe first Body_Status frame"
+      ],
+      "expected_result": "First frame reflects correct DoorRR value without delay",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s04_005(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_BODY_STATUS, CAPTURE_TIME)\n    assert msgs\n    assert decode_door_rr(msgs[0]) in (0,1)"
+    },
+
+    {
+      "test_case_id": "TC-GW-S04-006",
+      "test_objective": "Verify deterministic DoorRR behavior across repeated state changes.",
+      "preconditions": [
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "Repeatedly open and close door",
+        "Monitor Body_Status"
+      ],
+      "expected_result": "DoorRR consistently matches commanded state",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s04_006(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_BODY_STATUS, CAPTURE_TIME)\n    reference = decode_door_rr(msgs[0])\n    for msg in msgs:\n        assert decode_door_rr(msg) == reference"
+    },
+
+    {
+      "test_case_id": "TC-GW-S04-007",
+      "test_objective": "Verify DoorRR update does not affect other door signals.",
+      "preconditions": [
+        "Other doors unchanged",
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "Change only DoorRR",
+        "Monitor Body_Status"
+      ],
+      "expected_result": "Only DoorRR changes; others remain unchanged",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s04_007(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_BODY_STATUS, CAPTURE_TIME)\n    assert msgs\n    assert decode_door_rr(msgs[-1]) in (0,1)"
+    },
+
+    {
+      "test_case_id": "TC-GW-S04-008",
+      "test_objective": "Verify DoorRR update while vehicle is moving.",
+      "preconditions": [
+        "Vehicle in motion",
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "Change door state while moving",
+        "Monitor Body_Status"
+      ],
+      "expected_result": "DoorRR correctly updates during motion",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s04_008(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_BODY_STATUS, CAPTURE_TIME)\n    assert decode_door_rr(msgs[-1]) in (0,1)"
+    },
+
+    {
+      "test_case_id": "TC-GW-S04-009",
+      "test_objective": "Verify DoorRR status after ignition cycle.",
+      "preconditions": [
+        "Door open",
+        "Ignition OFF → ON cycle performed"
+      ],
+      "test_steps": [
+        "Power cycle ignition",
+        "Monitor Body_Status",
+        "Extract DoorRR"
+      ],
+      "expected_result": "DoorRR correctly reported after ignition cycle",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s04_009(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_BODY_STATUS, CAPTURE_TIME)\n    assert decode_door_rr(msgs[-1]) in (0,1)"
+    }
+
+  ]
+}

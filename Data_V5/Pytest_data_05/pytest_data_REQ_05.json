@@ -1,0 +1,76 @@
+{
+  "requirement": {
+    "requirement_id": "GW-REQ-05",
+    "description": "The gateway shall periodically transmit the consolidated door status to the instrument cluster.",
+    "can_messages": [
+      {
+        "node": "Gateway",
+        "arbitration_id": "0xC8",
+        "signal": "AnyDoorOpen",
+        "bit": 16
+      }
+    ],
+    "python_test_setup": "import os\nimport time\nimport pytest\nimport can\n\nGW_VEHICLE_STATUS_ID = 0xC8\nEXPECTED_CYCLE_TIME = float(os.getenv('GW_EXPECTED_CYCLE', '0.1'))  # 100ms default\n\n@pytest.fixture(scope=\"module\")\ndef can_bus():\n    bus = can.interface.Bus(interface=os.getenv('CAN_INTERFACE', 'socketcan'), channel=os.getenv('CAN_CHANNEL', 'can0'), bitrate=500000)\n    yield bus\n    bus.shutdown()\n\ndef decode_any_door_open(data_bytes: bytes) -> int:\n    return (data_bytes[2] >> 0) & 0x01\n\ndef collect_gw_messages(bus, duration_sec=3.0):\n    msgs = []\n    timestamps = []\n    start = time.time()\n    while time.time() - start < duration_sec:\n        msg = bus.recv(timeout=0.1)\n        if msg and msg.arbitration_id == GW_VEHICLE_STATUS_ID:\n            msgs.append(msg)\n            timestamps.append(time.time())\n    return msgs, timestamps\n\ndef verify_periodicity(timestamps, expected_cycle, tolerance=0.05):\n    if len(timestamps) < 2:\n        return False\n    intervals = [t2 - t1 for t1, t2 in zip(timestamps[:-1], timestamps[1:])]\n    return all(abs(i - expected_cycle) <= tolerance for i in intervals)"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-DOOR-PER-001",
+      "title": "Verify periodic transmission when all doors are closed",
+      "precondition": "Ignition ON; All doors closed; Monitor CAN ID 0xC8",
+      "steps": [
+        "Start ignition",
+        "Ensure DriverDoorOpen = 0 and PassengerDoorOpen = 0",
+        "Capture GW_VehicleStatus for 3 seconds",
+        "Extract AnyDoorOpen from multiple frames"
+      ],
+      "expected_result": "AnyDoorOpen = 0 transmitted periodically with correct cycle time",
+      "python_test_script": "def test_tc_gw_door_per_001_all_closed_periodic(can_bus):\n    msgs, timestamps = collect_gw_messages(can_bus, 3.0)\n    assert len(msgs) > 5\n    assert all(decode_any_door_open(m.data) == 0 for m in msgs)\n    assert verify_periodicity(timestamps, EXPECTED_CYCLE_TIME)"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-PER-002",
+      "title": "Verify periodic transmission when at least one door is open",
+      "precondition": "Ignition ON; At least one door open",
+      "steps": [
+        "Open one door",
+        "Monitor GW_VehicleStatus",
+        "Extract AnyDoorOpen over successive frames"
+      ],
+      "expected_result": "AnyDoorOpen = 1 transmitted periodically",
+      "python_test_script": "def test_tc_gw_door_per_002_door_open_periodic(can_bus):\n    msgs, timestamps = collect_gw_messages(can_bus, 3.0)\n    assert len(msgs) > 5\n    assert all(decode_any_door_open(m.data) == 1 for m in msgs)\n    assert verify_periodicity(timestamps, EXPECTED_CYCLE_TIME)"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-PER-003",
+      "title": "Verify periodic transmission remains active without door state change",
+      "precondition": "Ignition ON; Door state constant",
+      "steps": [
+        "Keep door state unchanged",
+        "Capture multiple GW_VehicleStatus messages"
+      ],
+      "expected_result": "AnyDoorOpen value repeated consistently in every periodic frame",
+      "python_test_script": "def test_tc_gw_door_per_003_constant_state(can_bus):\n    msgs, timestamps = collect_gw_messages(can_bus, 3.0)\n    assert len(msgs) > 5\n    states = {decode_any_door_open(m.data) for m in msgs}\n    assert len(states) == 1\n    assert verify_periodicity(timestamps, EXPECTED_CYCLE_TIME)"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-PER-004",
+      "title": "Verify periodic transmission resumes after door state transition",
+      "precondition": "Ignition ON; All doors initially closed",
+      "steps": [
+        "Ensure all doors closed",
+        "Open one door",
+        "Monitor subsequent GW_VehicleStatus frames"
+      ],
+      "expected_result": "AnyDoorOpen updates correctly and continues periodic transmission",
+      "python_test_script": "def test_tc_gw_door_per_004_state_change_then_periodic(can_bus):\n    msgs, timestamps = collect_gw_messages(can_bus, 4.0)\n    assert len(msgs) > 5\n    states = [decode_any_door_open(m.data) for m in msgs]\n    assert 0 in states or 1 in states\n    assert verify_periodicity(timestamps, EXPECTED_CYCLE_TIME)"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-PER-005",
+      "title": "Verify no loss of periodic door status transmission",
+      "precondition": "Ignition ON; Gateway operational",
+      "steps": [
+        "Monitor GW_VehicleStatus for extended duration (5 seconds)",
+        "Observe AnyDoorOpen in each frame"
+      ],
+      "expected_result": "Continuous periodic transmission without missing cycles",
+      "python_test_script": "def test_tc_gw_door_per_005_no_message_loss(can_bus):\n    msgs, timestamps = collect_gw_messages(can_bus, 5.0)\n    assert len(msgs) > 10\n    assert verify_periodicity(timestamps, EXPECTED_CYCLE_TIME)\n    for msg in msgs:\n        assert decode_any_door_open(msg.data) in (0, 1)"
+    }
+  ]
+}

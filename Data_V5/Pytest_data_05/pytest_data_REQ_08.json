@@ -1,0 +1,105 @@
+{
+  "requirement": {
+    "requirement_id": "GW-REQ-08",
+    "description": "The gateway shall periodically transmit the consolidated turn activity status to the instrument cluster.",
+    "can_messages": [
+      {
+        "node": "Gateway",
+        "arbitration_id": "0xC8",
+        "message_name": "GW_VehicleStatus",
+        "signal": "TurnActive",
+        "bit": 17,
+        "cycle_time_ms": 100
+      }
+    ],
+    "python_test_setup": "import os\nimport time\nimport pytest\nimport can\n\nMSG_ID_GW_VEHICLE_STATUS = 0xC8\nEXPECTED_MIN_MESSAGES = 5\n\n@pytest.fixture(scope=\"module\")\ndef can_bus():\n    bus = can.interface.Bus(interface=os.getenv('CAN_INTERFACE', 'socketcan'), channel=os.getenv('CAN_CHANNEL', 'can0'), bitrate=500000)\n    yield bus\n    bus.shutdown()\n\ndef decode_turn_active(data_bytes: bytes) -> int:\n    # TurnActive = bit 17 -> byte index 2, bit 1\n    return (data_bytes[2] >> 1) & 0x01\n\ndef collect_gateway_messages(bus, duration_sec=2.0):\n    msgs = []\n    start = time.time()\n    while time.time() - start < duration_sec:\n        msg = bus.recv(timeout=0.2)\n        if msg and msg.arbitration_id == MSG_ID_GW_VEHICLE_STATUS:\n            msgs.append(msg)\n    return msgs"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-TURN-PER-001",
+      "title": "Verify periodic transmission when no indicators are active",
+      "precondition": "Ignition ON; Gateway operational; LeftIndicator=0; RightIndicator=0; Monitor CAN ID 0xC8",
+      "steps": [
+        "Start vehicle ignition",
+        "Ensure both indicators are OFF",
+        "Capture GW_VehicleStatus for 2 seconds",
+        "Decode TurnActive from bit 17"
+      ],
+      "expected_result": "TurnActive = 0 in all frames; message transmitted periodically",
+      "python_test_script": "def test_tc_gw_turn_per_001_all_inactive(can_bus):\n    msgs = collect_gateway_messages(can_bus, 2.0)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES, 'Insufficient periodic messages'\n    assert all(decode_turn_active(m.data) == 0 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-GW-TURN-PER-002",
+      "title": "Verify periodic transmission when left indicator is active",
+      "precondition": "Ignition ON; Gateway operational; LeftIndicator=1; RightIndicator=0; Monitor CAN ID 0xC8",
+      "steps": [
+        "Activate left indicator",
+        "Capture GW_VehicleStatus for 2 seconds",
+        "Decode TurnActive"
+      ],
+      "expected_result": "TurnActive = 1 in all frames; periodic transmission maintained",
+      "python_test_script": "def test_tc_gw_turn_per_002_left_active(can_bus):\n    msgs = collect_gateway_messages(can_bus, 2.0)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES\n    assert all(decode_turn_active(m.data) == 1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-GW-TURN-PER-003",
+      "title": "Verify periodic transmission when right indicator is active",
+      "precondition": "Ignition ON; Gateway operational; LeftIndicator=0; RightIndicator=1; Monitor CAN ID 0xC8",
+      "steps": [
+        "Activate right indicator",
+        "Capture GW_VehicleStatus for 2 seconds",
+        "Decode TurnActive"
+      ],
+      "expected_result": "TurnActive = 1 in all frames; periodic transmission maintained",
+      "python_test_script": "def test_tc_gw_turn_per_003_right_active(can_bus):\n    msgs = collect_gateway_messages(can_bus, 2.0)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES\n    assert all(decode_turn_active(m.data) == 1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-GW-TURN-PER-004",
+      "title": "Verify periodic transmission when both indicators are active",
+      "precondition": "Ignition ON; Gateway operational; LeftIndicator=1; RightIndicator=1; Monitor CAN ID 0xC8",
+      "steps": [
+        "Activate both indicators",
+        "Capture GW_VehicleStatus for 2 seconds",
+        "Decode TurnActive"
+      ],
+      "expected_result": "TurnActive = 1 in all frames; periodic transmission maintained",
+      "python_test_script": "def test_tc_gw_turn_per_004_both_active(can_bus):\n    msgs = collect_gateway_messages(can_bus, 2.0)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES\n    assert all(decode_turn_active(m.data) == 1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-GW-TURN-PER-005",
+      "title": "Verify periodic transmission remains consistent without state change",
+      "precondition": "Ignition ON; Gateway operational; Indicator state constant; Monitor CAN ID 0xC8",
+      "steps": [
+        "Maintain constant indicator state",
+        "Capture GW_VehicleStatus for 3 seconds",
+        "Evaluate TurnActive across frames"
+      ],
+      "expected_result": "TurnActive value remains constant across all periodic frames",
+      "python_test_script": "def test_tc_gw_turn_per_005_constant_state(can_bus):\n    msgs = collect_gateway_messages(can_bus, 3.0)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES\n    states = {decode_turn_active(m.data) for m in msgs}\n    assert len(states) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-TURN-PER-006",
+      "title": "Verify periodic transmission continues after state transition",
+      "precondition": "Ignition ON; Gateway operational; Indicators initially OFF; Monitor CAN ID 0xC8",
+      "steps": [
+        "Ensure indicators OFF",
+        "Activate one indicator",
+        "Capture GW_VehicleStatus for 3 seconds",
+        "Decode TurnActive"
+      ],
+      "expected_result": "TurnActive updates correctly and periodic transmission continues",
+      "python_test_script": "def test_tc_gw_turn_per_006_state_transition(can_bus):\n    msgs = collect_gateway_messages(can_bus, 3.0)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES\n    states = [decode_turn_active(m.data) for m in msgs]\n    assert states[-1] in (0, 1)"
+    },
+    {
+      "test_case_id": "TC-GW-TURN-PER-007",
+      "title": "Verify no loss of periodic turn status messages",
+      "precondition": "Ignition ON; Gateway operational; Monitor CAN ID 0xC8 for extended duration",
+      "steps": [
+        "Capture GW_VehicleStatus for 5 seconds",
+        "Count received frames",
+        "Validate TurnActive decoding"
+      ],
+      "expected_result": "Gateway continuously transmits TurnActive without missing cycles",
+      "python_test_script": "def test_tc_gw_turn_per_007_no_message_loss(can_bus):\n    msgs = collect_gateway_messages(can_bus, 5.0)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES\n    for msg in msgs:\n        assert decode_turn_active(msg.data) in (0, 1)"
+    }
+  ]
+}

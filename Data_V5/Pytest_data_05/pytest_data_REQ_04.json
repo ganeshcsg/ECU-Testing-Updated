@@ -1,0 +1,100 @@
+{
+  "requirement": {
+    "requirement_id": "GW-REQ-04",
+    "description": "The gateway shall derive a consolidated door status based on the evaluated individual door indications.",
+    "can_messages": [
+      {
+        "node": "Gateway",
+        "arbitration_id": "0xC8",
+        "signal": "AnyDoorOpen",
+        "bit": 16
+      }
+    ],
+    "python_test_setup": "import os\nimport time\nimport pytest\nimport can\n\nGW_VEHICLE_STATUS_ID = 0xC8\n\n@pytest.fixture(scope=\"module\")\ndef can_bus():\n    bus = can.interface.Bus(interface=os.getenv('CAN_INTERFACE', 'socketcan'), channel=os.getenv('CAN_CHANNEL', 'can0'), bitrate=500000)\n    yield bus\n    bus.shutdown()\n\ndef decode_any_door_open(data_bytes: bytes) -> int:\n    return (data_bytes[2] >> 0) & 0x01  # Bit 16\n\ndef collect_gw_messages(bus, duration_sec=2.0):\n    msgs = []\n    start = time.time()\n    while time.time() - start < duration_sec:\n        msg = bus.recv(timeout=0.1)\n        if msg and msg.arbitration_id == GW_VEHICLE_STATUS_ID:\n            msgs.append(msg)\n    return msgs"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-DOOR-CON-001",
+      "title": "Verify consolidated door status when all monitored doors are closed",
+      "precondition": "Ignition ON; DriverDoorOpen = 0; PassengerDoorOpen = 0; Monitor CAN ID 0xC8",
+      "steps": [
+        "Start vehicle ignition",
+        "Ensure both doors closed",
+        "Capture GW_VehicleStatus for 2 seconds",
+        "Extract AnyDoorOpen (bit 16)"
+      ],
+      "expected_result": "AnyDoorOpen = 0 in all frames",
+      "python_test_script": "def test_tc_gw_door_con_001_all_closed(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert len(msgs) >= 5\n    assert all(decode_any_door_open(m.data) == 0 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-CON-002",
+      "title": "Verify consolidated door status when driver door is open",
+      "precondition": "Ignition ON; DriverDoorOpen = 1; PassengerDoorOpen = 0",
+      "steps": [
+        "Set DriverDoorOpen = 1",
+        "Monitor GW_VehicleStatus",
+        "Decode AnyDoorOpen"
+      ],
+      "expected_result": "AnyDoorOpen = 1",
+      "python_test_script": "def test_tc_gw_door_con_002_driver_open(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert len(msgs) >= 5\n    assert all(decode_any_door_open(m.data) == 1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-CON-003",
+      "title": "Verify consolidated door status when passenger door is open",
+      "precondition": "Ignition ON; DriverDoorOpen = 0; PassengerDoorOpen = 1",
+      "steps": [
+        "Set PassengerDoorOpen = 1",
+        "Monitor GW_VehicleStatus"
+      ],
+      "expected_result": "AnyDoorOpen = 1",
+      "python_test_script": "def test_tc_gw_door_con_003_passenger_open(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert len(msgs) >= 5\n    assert all(decode_any_door_open(m.data) == 1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-CON-004",
+      "title": "Verify consolidated door status when both doors are open",
+      "precondition": "Ignition ON; DriverDoorOpen = 1; PassengerDoorOpen = 1",
+      "steps": [
+        "Open both doors",
+        "Monitor GW_VehicleStatus"
+      ],
+      "expected_result": "AnyDoorOpen = 1",
+      "python_test_script": "def test_tc_gw_door_con_004_both_open(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert len(msgs) >= 5\n    assert all(decode_any_door_open(m.data) == 1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-CON-005",
+      "title": "Verify consolidated door status updates when any door transitions from closed to open",
+      "precondition": "Ignition ON; Both doors initially closed",
+      "steps": [
+        "Ensure both doors closed",
+        "Open driver door",
+        "Capture next GW_VehicleStatus"
+      ],
+      "expected_result": "AnyDoorOpen transitions from 0 to 1 immediately",
+      "python_test_script": "def test_tc_gw_door_con_005_transition_set(can_bus):\n    msgs = collect_gw_messages(can_bus, 3.0)\n    assert msgs\n    states = [decode_any_door_open(m.data) for m in msgs]\n    assert 0 in states and 1 in states\n    assert states[-1] == 1"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-CON-006",
+      "title": "Verify consolidated door status clears when all doors are closed again",
+      "precondition": "Ignition ON; At least one door open",
+      "steps": [
+        "Ensure one door open",
+        "Close all doors",
+        "Monitor GW_VehicleStatus"
+      ],
+      "expected_result": "AnyDoorOpen returns to 0",
+      "python_test_script": "def test_tc_gw_door_con_006_transition_clear(can_bus):\n    msgs = collect_gw_messages(can_bus, 3.0)\n    assert msgs\n    states = [decode_any_door_open(m.data) for m in msgs]\n    assert states[-1] == 0"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-CON-007",
+      "title": "Verify consolidated door status remains asserted if one door remains open",
+      "precondition": "Ignition ON; Both doors open initially",
+      "steps": [
+        "Open both doors",
+        "Close only one door",
+        "Monitor GW_VehicleStatus"
+      ],
+      "expected_result": "AnyDoorOpen remains 1",
+      "python_test_script": "def test_tc_gw_door_con_007_partial_close(can_bus):\n    msgs = collect_gw_messages(can_bus, 3.0)\n    assert len(msgs) >= 5\n    assert all(decode_any_door_open(m.data) == 1 for m in msgs)"
+    }
+  ]
+}

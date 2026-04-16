@@ -1,0 +1,117 @@
+{
+  "requirement": {
+    "requirement_id": "GW-REQ-11",
+    "description": "If a door open condition is detected while the vehicle is in motion, the gateway shall generate a door warning condition.",
+    "can_messages": [
+      {
+        "node": "Gateway",
+        "arbitration_id": "0xD2",
+        "message_name": "GW_Warnings",
+        "signal": "DoorWarning",
+        "bit": 1,
+        "trigger_condition": "DoorOpen AND VehicleSpeed > 0"
+      }
+    ],
+    "python_test_setup": "import os\nimport time\nimport pytest\nimport can\n\nMSG_ID_GW_WARNINGS = 0xD2\nEXPECTED_MIN_MESSAGES = 5\n\n@pytest.fixture(scope=\"module\")\ndef can_bus():\n    bus = can.interface.Bus(interface=os.getenv('CAN_INTERFACE', 'socketcan'), channel=os.getenv('CAN_CHANNEL', 'can0'), bitrate=500000)\n    yield bus\n    bus.shutdown()\n\ndef decode_door_warning(data_bytes: bytes) -> int:\n    # DoorWarning = bit 1 -> byte 0, bit 1\n    return (data_bytes[0] >> 1) & 0x01\n\ndef collect_warning_messages(bus, duration_sec=2.0):\n    msgs = []\n    start = time.time()\n    while time.time() - start < duration_sec:\n        msg = bus.recv(timeout=0.2)\n        if msg and msg.arbitration_id == MSG_ID_GW_WARNINGS:\n            msgs.append(msg)\n    return msgs"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-DOOR-WARN-001",
+      "title": "Verify door warning inactive when stationary and doors closed",
+      "precondition": "Ignition ON; VehicleSpeed = 0; All doors closed; Monitor CAN ID 0xD2",
+      "steps": [
+        "Start ignition",
+        "Ensure VehicleSpeed = 0 km/h",
+        "Ensure all doors closed",
+        "Capture GW_Warnings for 2 seconds"
+      ],
+      "expected_result": "DoorWarning = 0 in all frames",
+      "python_test_script": "def test_tc_gw_door_warn_001_stationary_closed(can_bus):\n    msgs = collect_warning_messages(can_bus, 2.0)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES\n    assert all(decode_door_warning(m.data) == 0 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-WARN-002",
+      "title": "Verify door warning inactive when stationary and door open",
+      "precondition": "Ignition ON; VehicleSpeed = 0; At least one door open; Monitor CAN ID 0xD2",
+      "steps": [
+        "Keep VehicleSpeed = 0 km/h",
+        "Open any door",
+        "Capture GW_Warnings for 2 seconds"
+      ],
+      "expected_result": "DoorWarning = 0 in all frames",
+      "python_test_script": "def test_tc_gw_door_warn_002_stationary_open(can_bus):\n    msgs = collect_warning_messages(can_bus, 2.0)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES\n    assert all(decode_door_warning(m.data) == 0 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-WARN-003",
+      "title": "Verify door warning activates when moving and driver door opens",
+      "precondition": "Ignition ON; VehicleSpeed > 0; Monitor CAN ID 0xD2",
+      "steps": [
+        "Set VehicleSpeed > 0 km/h",
+        "Open DriverDoor",
+        "Capture GW_Warnings for 2 seconds"
+      ],
+      "expected_result": "DoorWarning = 1 in all frames",
+      "python_test_script": "def test_tc_gw_door_warn_003_driver_open_moving(can_bus):\n    msgs = collect_warning_messages(can_bus, 2.0)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES\n    assert all(decode_door_warning(m.data) == 1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-WARN-004",
+      "title": "Verify door warning activates when moving and passenger door opens",
+      "precondition": "Ignition ON; VehicleSpeed > 0; Monitor CAN ID 0xD2",
+      "steps": [
+        "Set VehicleSpeed > 0 km/h",
+        "Open PassengerDoor",
+        "Capture GW_Warnings for 2 seconds"
+      ],
+      "expected_result": "DoorWarning = 1 in all frames",
+      "python_test_script": "def test_tc_gw_door_warn_004_passenger_open_moving(can_bus):\n    msgs = collect_warning_messages(can_bus, 2.0)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES\n    assert all(decode_door_warning(m.data) == 1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-WARN-005",
+      "title": "Verify door warning activates when multiple doors open while moving",
+      "precondition": "Ignition ON; VehicleSpeed > 0; Multiple doors open; Monitor CAN ID 0xD2",
+      "steps": [
+        "Set VehicleSpeed > 0 km/h",
+        "Open multiple doors",
+        "Capture GW_Warnings for 2 seconds"
+      ],
+      "expected_result": "DoorWarning = 1 in all frames",
+      "python_test_script": "def test_tc_gw_door_warn_005_multiple_open_moving(can_bus):\n    msgs = collect_warning_messages(can_bus, 2.0)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES\n    assert all(decode_door_warning(m.data) == 1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-WARN-006",
+      "title": "Verify door warning clears when doors close while moving",
+      "precondition": "Ignition ON; VehicleSpeed > 0; DoorWarning active; Monitor CAN ID 0xD2",
+      "steps": [
+        "Ensure DoorWarning active",
+        "Close all doors",
+        "Capture GW_Warnings for 3 seconds"
+      ],
+      "expected_result": "DoorWarning transitions to 0",
+      "python_test_script": "def test_tc_gw_door_warn_006_clear_on_close(can_bus):\n    msgs = collect_warning_messages(can_bus, 3.0)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES\n    states = [decode_door_warning(m.data) for m in msgs]\n    assert states[-1] == 0"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-WARN-007",
+      "title": "Verify door warning clears when vehicle stops",
+      "precondition": "Ignition ON; VehicleSpeed > 0; Door open; Monitor CAN ID 0xD2",
+      "steps": [
+        "Ensure VehicleSpeed > 0 km/h and door open",
+        "Reduce VehicleSpeed to 0 km/h",
+        "Capture GW_Warnings for 3 seconds"
+      ],
+      "expected_result": "DoorWarning = 0",
+      "python_test_script": "def test_tc_gw_door_warn_007_clear_on_stop(can_bus):\n    msgs = collect_warning_messages(can_bus, 3.0)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES\n    assert decode_door_warning(msgs[-1].data) == 0"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-WARN-008",
+      "title": "Verify immediate door warning when door opens while moving",
+      "precondition": "Ignition ON; VehicleSpeed > 0; All doors initially closed; Monitor CAN ID 0xD2",
+      "steps": [
+        "Maintain VehicleSpeed > 0 km/h with doors closed",
+        "Open any door",
+        "Capture GW_Warnings for 3 seconds",
+        "Observe state transition"
+      ],
+      "expected_result": "DoorWarning transitions immediately from 0 to 1",
+      "python_test_script": "def test_tc_gw_door_warn_008_immediate_set(can_bus):\n    msgs = collect_warning_messages(can_bus, 3.0)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES\n    states = [decode_door_warning(m.data) for m in msgs]\n    assert 0 in states and 1 in states\n    assert states[-1] == 1"
+    }
+  ]
+}

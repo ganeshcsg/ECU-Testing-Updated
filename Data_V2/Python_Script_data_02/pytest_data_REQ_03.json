@@ -1,0 +1,66 @@
+{
+  "requirement": {
+    "requirement_id": "BCM-REQ-03",
+    "description": "When any door (front or rear) transitions between open and closed states, the body controller shall immediately transmit the corresponding door status to the gateway ECU.",
+    "can_message": {
+      "node": "BCM",
+      "arbitration_id": "0x300",
+      "message_name": "BCM_Body_State",
+      "dlc": 8,
+      "signals": [
+        { "name": "Bdy_Door_Front_Left",  "start_bit": 2, "length": 1 },
+        { "name": "Bdy_Door_Front_Right", "start_bit": 3, "length": 1 },
+        { "name": "Bdy_Door_Rear_Left",   "start_bit": 4, "length": 1 },
+        { "name": "Bdy_Door_Rear_Right",  "start_bit": 5, "length": 1 }
+      ]
+    }
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-BCM-DOOR-001",
+      "test_objective": "Verify Front Left door status is 0 when closed.",
+      "preconditions": [
+        "Ignition ON",
+        "Front Left door closed"
+      ],
+      "test_steps": [
+        "Monitor CAN ID 0x300",
+        "Extract Bdy_Door_Front_Left"
+      ],
+      "expected_result": "Bdy_Door_Front_Left = 0",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_door_001(can_bus):\n    msg = wait_next_bcm_frame(can_bus)\n    assert get_signal(msg.data, 2) == 0"
+    },
+    {
+      "test_case_id": "TC-BCM-DOOR-002",
+      "test_objective": "Verify Front Left door status is 1 when opened.",
+      "preconditions": [
+        "Ignition ON",
+        "Front Left door open"
+      ],
+      "test_steps": [
+        "Open Front Left door",
+        "Capture next BCM frame"
+      ],
+      "expected_result": "Bdy_Door_Front_Left = 1",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_door_002(can_bus):\n    msg = wait_next_bcm_frame(can_bus)\n    assert get_signal(msg.data, 2) == 1"
+    },
+    {
+      "test_case_id": "TC-BCM-DOOR-007",
+      "test_objective": "Verify immediate update on Front Right door open.",
+      "preconditions": [
+        "Ignition ON",
+        "Front Right door initially closed"
+      ],
+      "test_steps": [
+        "Open Front Right door",
+        "Capture next CAN frame"
+      ],
+      "expected_result": "Bdy_Door_Front_Right changes from 0 to 1",
+      "test_type": "Timing",
+      "python_test_script": "def test_tc_door_007(can_bus):\n    msg = wait_next_bcm_frame(can_bus)\n    assert get_signal(msg.data, 3) == 1"
+    }
+  ]
+}

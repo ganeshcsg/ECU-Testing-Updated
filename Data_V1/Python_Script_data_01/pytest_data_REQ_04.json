@@ -1,0 +1,115 @@
+{
+  "requirement": {
+    "requirement_id": "REQ-04",
+    "description": "The BCM shall transmit whether the trunk is open or closed on the CAN bus.",
+    "can_message": {
+      "arbitration_id": "0x100",
+      "signal": "Trunk_Status",
+      "byte": 0,
+      "bit_position": 4,
+      "valid_values": {
+        "0": "Closed",
+        "1": "Open"
+      }
+    },
+    "python_test_setup": "import os\nimport time\nimport pytest\nimport can\n\nBCM_CAN_ID = 0x100\nTRUNK_STATUS_BIT = 4\nDEFAULT_TIMEOUT = 5.0\n\n@pytest.fixture(scope=\"session\")\ndef can_bus():\n    interface = os.getenv(\"CAN_INTERFACE\", \"socketcan\")\n    channel = os.getenv(\"CAN_CHANNEL\", \"can0\")\n    bitrate = int(os.getenv(\"CAN_BITRATE\", \"500000\"))\n    bus = can.Bus(interface=interface, channel=channel, bitrate=bitrate)\n    yield bus\n    bus.shutdown()\n\ndef get_trunk_status(data: bytes) -> int:\n    return (data[0] >> TRUNK_STATUS_BIT) & 0x01\n\ndef collect_bcm_messages(can_bus, duration_sec=1.0):\n    msgs = []\n    end_time = time.time() + duration_sec\n    while time.time() < end_time:\n        msg = can_bus.recv(timeout=0.2)\n        if msg and msg.arbitration_id == BCM_CAN_ID: msgs.append(msg)\n    return msgs\n\ndef capture_transition(can_bus, initial, final, timeout=DEFAULT_TIMEOUT):\n    seen_initial = False\n    end_time = time.time() + timeout\n    while time.time() < end_time:\n        msg = can_bus.recv(timeout=0.5)\n        if msg and msg.arbitration_id == BCM_CAN_ID:\n            val = get_trunk_status(msg.data)\n            if val == initial: seen_initial = True\n            if seen_initial and val == final: return True\n    return False"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-TRK-001",
+      "title": "Trunk Closed Verification",
+      "precondition": "Ignition ON; trunk closed",
+      "steps": ["Switch ignition ON", "Ensure trunk closed", "Monitor ID 0x100", "Decode bit 4"],
+      "expected_result": "Trunk_Status = 0 consistently",
+      "python_test_script": "def test_tc_trk_001_trunk_closed(can_bus):\n    msgs = collect_bcm_messages(can_bus, 2.0)\n    assert len(msgs) > 5\n    assert all(get_trunk_status(m.data) == 0 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-TRK-002",
+      "title": "Trunk Open Verification",
+      "precondition": "Ignition ON; CAN tool active",
+      "steps": ["Switch ignition ON", "Open trunk physically", "Monitor CAN ID 0x100", "Decode Trunk_Status"],
+      "expected_result": "Trunk_Status = 1 consistently",
+      "python_test_script": "def test_tc_trk_002_trunk_open(can_bus):\n    msgs = collect_bcm_messages(can_bus, 2.0)\n    assert len(msgs) > 5\n    assert all(get_trunk_status(m.data) == 1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-TRK-003",
+      "title": "Transition: Closed to Open",
+      "precondition": "Ignition ON; trunk closed",
+      "steps": ["Monitor status = 0", "Open trunk", "Continue monitoring"],
+      "expected_result": "Trunk_Status changes from 0 to 1 within next frames",
+      "python_test_script": "def test_tc_trk_003_transition_0_to_1(can_bus):\n    assert capture_transition(can_bus, initial=0, final=1)"
+    },
+    {
+      "test_case_id": "TC-TRK-004",
+      "title": "Transition: Open to Closed",
+      "precondition": "Ignition ON; trunk open",
+      "steps": ["Confirm status = 1", "Close trunk", "Monitor CAN frames"],
+      "expected_result": "Trunk_Status changes from 1 to 0",
+      "python_test_script": "def test_tc_trk_004_transition_1_to_0(can_bus):\n    assert capture_transition(can_bus, initial=1, final=0)"
+    },
+    {
+      "test_case_id": "TC-TRK-005",
+      "title": "Stability while Closed",
+      "precondition": "Ignition ON; trunk closed",
+      "steps": ["Monitor CAN for 10 seconds", "Capture BCM_Status_1 frames"],
+      "expected_result": "All frames contain Trunk_Status = 0",
+      "python_test_script": "def test_tc_trk_005_stability_closed(can_bus):\n    msgs = collect_bcm_messages(can_bus, 10.0)\n    assert all(get_trunk_status(m.data) == 0 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-TRK-006",
+      "title": "Stability while Open",
+      "precondition": "Ignition ON; trunk open",
+      "steps": ["Monitor CAN for 10 seconds", "Capture frames"],
+      "expected_result": "All frames contain Trunk_Status = 1",
+      "python_test_script": "def test_tc_trk_006_stability_open(can_bus):\n    msgs = collect_bcm_messages(can_bus, 10.0)\n    assert all(get_trunk_status(m.data) == 1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-TRK-007",
+      "title": "Robustness: Valid Values",
+      "precondition": "Ignition ON",
+      "steps": ["Monitor status over multiple frames", "Log observed values"],
+      "expected_result": "Only values 0 or 1 observed",
+      "python_test_script": "def test_tc_trk_007_valid_values(can_bus):\n    msgs = collect_bcm_messages(can_bus, 5.0)\n    for m in msgs:\n        assert get_trunk_status(m.data) in (0, 1)"
+    },
+    {
+      "test_case_id": "TC-TRK-008",
+      "title": "Endurance: Open/Close Cycles",
+      "precondition": "Ignition ON",
+      "steps": ["Perform 5 open/close cycles", "Monitor CAN"],
+      "expected_result": "Each transition correctly reflected on CAN",
+      "python_test_script": "def test_tc_trk_008_cycles(can_bus):\n    states = set()\n    end_time = time.time() + 10.0\n    while time.time() < end_time:\n        msg = can_bus.recv(timeout=0.1)\n        if msg and msg.arbitration_id == BCM_CAN_ID:\n            states.add(get_trunk_status(msg.data))\n    assert {0, 1}.issubset(states)"
+    },
+    {
+      "test_case_id": "TC-TRK-009",
+      "title": "Interface: Correct CAN ID",
+      "precondition": "Ignition ON; logging all IDs",
+      "steps": ["Log all CAN traffic", "Search for Trunk_Status behavior"],
+      "expected_result": "Signal only present in CAN ID 0x100",
+      "python_test_script": "def test_tc_trk_009_id_integrity(can_bus):\n    # This assumes checking specifically for the signal behavior pattern\n    msgs = collect_bcm_messages(can_bus, 5.0)\n    assert all(m.arbitration_id == BCM_CAN_ID for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-TRK-010",
+      "title": "Structural: Bit Position Integrity",
+      "precondition": "Ignition ON",
+      "steps": ["Capture raw data bytes", "Flip trunk state", "Analyze bit changes"],
+      "expected_result": "Only bit 4 reflects trunk state",
+      "python_test_script": "def test_tc_trk_010_bit_4_only(can_bus):\n    msgs = collect_bcm_messages(can_bus, 5.0)\n    prev_raw = None\n    for m in msgs:\n        curr_raw = m.data[0]\n        if prev_raw is not None and curr_raw != prev_raw:\n            assert (curr_raw ^ prev_raw) == (1 << TRUNK_STATUS_BIT)\n        prev_raw = curr_raw"
+    },
+    {
+      "test_case_id": "TC-TRK-011",
+      "title": "Stress: Rapid Toggling",
+      "precondition": "Ignition ON",
+      "steps": ["Rapidly toggle trunk 10 times", "Monitor CAN frames"],
+      "expected_result": "No missing updates, correct transitions",
+      "python_test_script": "def test_tc_trk_011_rapid_toggle(can_bus):\n    transitions = 0\n    last_val = None\n    end_time = time.time() + 10.0\n    while time.time() < end_time:\n        msg = can_bus.recv(timeout=0.1)\n        if msg and msg.arbitration_id == BCM_CAN_ID:\n            curr = get_trunk_status(msg.data)\n            if last_val is not None and curr != last_val: transitions += 1\n            last_val = curr\n    assert transitions >= 5"
+    },
+    {
+      "test_case_id": "TC-TRK-012",
+      "title": "Persistence: Ignition Cycle",
+      "precondition": "Trunk open; Ignition ON",
+      "steps": ["Ignition OFF", "Ignition ON", "Monitor CAN frames"],
+      "expected_result": "Trunk_Status = 1 after restart",
+      "python_test_script": "def test_tc_trk_012_persistence(can_bus):\n    # Verification after manual ignition cycle\n    msg = can_bus.recv(timeout=5.0)\n    assert get_trunk_status(msg.data) == 1"
+    }
+  ]
+}

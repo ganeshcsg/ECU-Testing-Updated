@@ -1,0 +1,147 @@
+{
+  "requirement": {
+    "requirement_id": "S-02",
+    "description": "The gateway shall forward the vehicle ignition status to the instrument cluster without modification.",
+    "can_messages": [
+      {
+        "node": "Gateway",
+        "arbitration_id": "0x101",
+        "message_name": "GW_IgnitionStatus",
+        "signals": [
+          {
+            "signal": "IgnitionState",
+            "start_bit": 0,
+            "length": 2,
+            "byte": 0,
+            "values": {
+              "0": "OFF",
+              "1": "ACC",
+              "2": "ON",
+              "3": "START"
+            }
+          }
+        ],
+        "dlc": 8
+      }
+    ],
+    "python_test_setup": "import os\nimport time\nimport pytest\nimport can\n\nGW_IGNITION_STATUS_ID = 0x101\nGW_IGNITION_STATUS_DLC = 8\n\n@pytest.fixture(scope=\"module\")\ndef can_bus():\n    bus = can.interface.Bus(\n        interface=os.getenv('CAN_INTERFACE', 'vector'),\n        channel=os.getenv('CAN_CHANNEL', 0),\n        bitrate=500000\n    )\n    yield bus\n    bus.shutdown()\n\ndef collect_gw_messages(bus, duration_sec=1.0):\n    msgs = []\n    start = time.time()\n    while time.time() - start < duration_sec:\n        msg = bus.recv(timeout=0.2)\n        if msg and msg.arbitration_id == GW_IGNITION_STATUS_ID:\n            msgs.append(msg)\n    return msgs\n\ndef get_ignition_state(data_bytes: bytes) -> int:\n    return data_bytes[0] & 0x03"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-IGN-001",
+      "title": "Verify GW_IgnitionStatus message is transmitted",
+      "precondition": "Ignition ON; Gateway ECU powered; Monitor CAN ID 0x101",
+      "steps": [
+        "Switch ignition ON",
+        "Allow Gateway to boot",
+        "Monitor CAN bus"
+      ],
+      "expected_result": "GW_IgnitionStatus message present on CAN bus",
+      "python_test_script": "def test_tc_gw_ign_001_present(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert msgs, 'GW_IgnitionStatus not detected'"
+    },
+    {
+      "test_case_id": "TC-GW-IGN-002",
+      "title": "Verify ignition OFF state is forwarded correctly",
+      "precondition": "Ignition OFF; CAN monitoring enabled",
+      "steps": [
+        "Ensure ignition OFF",
+        "Capture GW_IgnitionStatus",
+        "Extract IgnitionState"
+      ],
+      "expected_result": "IgnitionState = 0",
+      "python_test_script": "def test_tc_gw_ign_002_off(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert msgs\n    for msg in msgs:\n        assert get_ignition_state(msg.data) == 0"
+    },
+    {
+      "test_case_id": "TC-GW-IGN-003",
+      "title": "Verify ignition ACC state is forwarded correctly",
+      "precondition": "Ignition in ACC",
+      "steps": [
+        "Set ignition to ACC",
+        "Capture GW_IgnitionStatus",
+        "Extract IgnitionState"
+      ],
+      "expected_result": "IgnitionState = 1",
+      "python_test_script": "def test_tc_gw_ign_003_acc(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert msgs\n    for msg in msgs:\n        assert get_ignition_state(msg.data) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-IGN-004",
+      "title": "Verify ignition ON state is forwarded correctly",
+      "precondition": "Ignition ON",
+      "steps": [
+        "Set ignition to ON",
+        "Capture GW_IgnitionStatus",
+        "Extract IgnitionState"
+      ],
+      "expected_result": "IgnitionState = 2",
+      "python_test_script": "def test_tc_gw_ign_004_on(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert msgs\n    for msg in msgs:\n        assert get_ignition_state(msg.data) == 2"
+    },
+    {
+      "test_case_id": "TC-GW-IGN-005",
+      "title": "Verify ignition START state is forwarded correctly",
+      "precondition": "Ignition in START",
+      "steps": [
+        "Set ignition to START",
+        "Capture GW_IgnitionStatus",
+        "Extract IgnitionState"
+      ],
+      "expected_result": "IgnitionState = 3",
+      "python_test_script": "def test_tc_gw_ign_005_start(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert msgs\n    for msg in msgs:\n        assert get_ignition_state(msg.data) == 3"
+    },
+    {
+      "test_case_id": "TC-GW-IGN-006",
+      "title": "Verify ignition status is transmitted periodically",
+      "precondition": "Ignition ON",
+      "steps": [
+        "Capture GW_IgnitionStatus for 5 seconds",
+        "Observe continuity"
+      ],
+      "expected_result": "Periodic transmission without large gaps",
+      "python_test_script": "def test_tc_gw_ign_006_periodic(can_bus):\n    msgs = collect_gw_messages(can_bus, 5.0)\n    assert len(msgs) >= 3"
+    },
+    {
+      "test_case_id": "TC-GW-IGN-007",
+      "title": "Verify IgnitionState remains constant if ignition does not change",
+      "precondition": "Ignition steady in ON state",
+      "steps": [
+        "Capture consecutive frames",
+        "Compare IgnitionState"
+      ],
+      "expected_result": "IgnitionState remains constant",
+      "python_test_script": "def test_tc_gw_ign_007_no_change(can_bus):\n    msgs = collect_gw_messages(can_bus, 3.0)\n    assert msgs\n    first = get_ignition_state(msgs[0].data)\n    for msg in msgs:\n        assert get_ignition_state(msg.data) == first"
+    },
+    {
+      "test_case_id": "TC-GW-IGN-008",
+      "title": "Verify GW_IgnitionStatus DLC",
+      "precondition": "Ignition ON",
+      "steps": [
+        "Capture GW_IgnitionStatus frame",
+        "Check DLC"
+      ],
+      "expected_result": "DLC = 8 bytes",
+      "python_test_script": "def test_tc_gw_ign_008_dlc(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert msgs\n    for msg in msgs:\n        assert msg.dlc == GW_IGNITION_STATUS_DLC"
+    },
+    {
+      "test_case_id": "TC-GW-IGN-009",
+      "title": "Verify GW_IgnitionStatus stops after Gateway power OFF",
+      "precondition": "Gateway active",
+      "steps": [
+        "Monitor transmission",
+        "Switch ignition OFF",
+        "Observe CAN bus"
+      ],
+      "expected_result": "GW_IgnitionStatus stops transmitting",
+      "python_test_script": "def test_tc_gw_ign_009_stop(can_bus):\n    msgs_before = collect_gw_messages(can_bus, 2.0)\n    assert msgs_before\n    time.sleep(3)\n    msgs_after = collect_gw_messages(can_bus, 2.0)\n    assert not msgs_after"
+    },
+    {
+      "test_case_id": "TC-GW-IGN-010",
+      "title": "Verify GW_IgnitionStatus resumes after restart",
+      "precondition": "Gateway powered OFF",
+      "steps": [
+        "Switch ignition ON",
+        "Monitor CAN bus"
+      ],
+      "expected_result": "GW_IgnitionStatus resumes periodic transmission",
+      "python_test_script": "def test_tc_gw_ign_010_resume(can_bus):\n    time.sleep(3)\n    msgs = collect_gw_messages(can_bus, 3.0)\n    assert msgs"
+    }
+  ]
+}

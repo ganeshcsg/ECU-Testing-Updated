@@ -1,0 +1,158 @@
+{
+  "requirement": {
+    "requirement_id": "C-05",
+    "description": "The gateway shall append a CRC to safety-critical messages and reject incoming messages with invalid CRC.",
+    "can_message": {
+      "node": "Gateway",
+      "arbitration_id": "0x119",
+      "message_name": "GW_SafetyMessage",
+      "dlc": 8,
+      "signals": [
+        {
+          "name": "SafetyData",
+          "start_bit": 0,
+          "length": 32,
+          "byte_order": "little_endian"
+        },
+        {
+          "name": "CRC",
+          "start_bit": 40,
+          "length": 8,
+          "byte_order": "little_endian",
+          "values": {
+            "0-255": "8-bit CRC"
+          }
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-C05-001",
+      "test_objective": "Verify that GW_SafetyMessage contains a CRC field.",
+      "preconditions": [
+        "Vehicle ignition ON",
+        "Gateway ECU active",
+        "CAN monitoring tool configured for message ID 0x119"
+      ],
+      "test_steps": [
+        "Switch ignition ON",
+        "Monitor CAN bus for GW_SafetyMessage",
+        "Extract CRC signal from bits 40–47"
+      ],
+      "expected_result": "CRC field is present in every GW_SafetyMessage frame.",
+      "postconditions": [
+        "Continue CAN monitoring"
+      ],
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_c05_001_crc_present(can_bus):\n    msgs = collect_messages(can_bus, 0x119, 3)\n    for msg in msgs:\n        assert decode_crc(msg) is not None"
+    },
+    {
+      "test_case_id": "TC-GW-C05-002",
+      "test_objective": "Verify CRC value updates when SafetyData changes.",
+      "preconditions": [
+        "Gateway ECU active",
+        "SafetyData varying via CAPL"
+      ],
+      "test_steps": [
+        "Monitor consecutive GW_SafetyMessage frames",
+        "Observe SafetyData changes",
+        "Observe CRC field"
+      ],
+      "expected_result": "CRC value changes corresponding to SafetyData changes.",
+      "postconditions": [
+        "Continue CAN monitoring"
+      ],
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_c05_002_crc_changes_with_data(can_bus):\n    msgs = collect_messages(can_bus, 0x119, 5)\n    for i in range(1, len(msgs)):\n        if decode_safety_data(msgs[i]) != decode_safety_data(msgs[i - 1]):\n            assert decode_crc(msgs[i]) != decode_crc(msgs[i - 1])"
+    },
+    {
+      "test_case_id": "TC-GW-C05-003",
+      "test_objective": "Verify CRC remains stable when SafetyData does not change.",
+      "preconditions": [
+        "Gateway ECU active",
+        "SafetyData constant"
+      ],
+      "test_steps": [
+        "Monitor multiple GW_SafetyMessage frames",
+        "Extract CRC values"
+      ],
+      "expected_result": "CRC value remains unchanged when SafetyData is unchanged.",
+      "postconditions": [
+        "Continue CAN monitoring"
+      ],
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_c05_003_crc_stable_with_same_data(can_bus):\n    msgs = collect_messages(can_bus, 0x119, 3)\n    data_values = [decode_safety_data(m) for m in msgs]\n    crc_values = [decode_crc(m) for m in msgs]\n    if len(set(data_values)) == 1:\n        assert len(set(crc_values)) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-C05-004",
+      "test_objective": "Verify CRC field is within valid range.",
+      "preconditions": [
+        "Gateway ECU active"
+      ],
+      "test_steps": [
+        "Monitor multiple GW_SafetyMessage frames",
+        "Extract CRC signal"
+      ],
+      "expected_result": "CRC value always remains within 0–255.",
+      "postconditions": [
+        "Continue CAN monitoring"
+      ],
+      "test_type": "Boundary",
+      "python_test_script": "def test_tc_gw_c05_004_crc_range(can_bus):\n    msgs = collect_messages(can_bus, 0x119, 5)\n    for msg in msgs:\n        crc = decode_crc(msg)\n        assert 0 <= crc <= 255"
+    },
+    {
+      "test_case_id": "TC-GW-C05-005",
+      "test_objective": "Verify gateway rejects incoming safety message with invalid CRC.",
+      "preconditions": [
+        "Gateway ECU active",
+        "CAPL configured to inject invalid CRC"
+      ],
+      "test_steps": [
+        "Inject GW_SafetyMessage with corrupted CRC via CAPL",
+        "Monitor Gateway output or forwarding behavior"
+      ],
+      "expected_result": "Gateway rejects the message; no forwarding or processing occurs.",
+      "postconditions": [
+        "Continue CAN monitoring"
+      ],
+      "test_type": "Robustness",
+      "python_test_script": "def test_tc_gw_c05_005_reject_invalid_crc(can_bus):\n    time.sleep(2)\n    msgs = collect_messages(can_bus, 0x119, 1, timeout=2.0)\n    assert not msgs"
+    },
+    {
+      "test_case_id": "TC-GW-C05-006",
+      "test_objective": "Verify gateway resumes processing after valid CRC is restored.",
+      "preconditions": [
+        "Gateway ECU previously received invalid CRC messages"
+      ],
+      "test_steps": [
+        "Inject valid CRC GW_SafetyMessage via CAPL",
+        "Monitor Gateway output behavior"
+      ],
+      "expected_result": "Gateway accepts and processes valid CRC messages.",
+      "postconditions": [
+        "Continue CAN monitoring"
+      ],
+      "test_type": "Recovery",
+      "python_test_script": "def test_tc_gw_c05_006_accept_valid_crc_after_recovery(can_bus):\n    time.sleep(2)\n    msgs = collect_messages(can_bus, 0x119, 2)\n    assert msgs"
+    },
+    {
+      "test_case_id": "TC-GW-C05-007",
+      "test_objective": "Verify CRC is present in every GW_SafetyMessage over time.",
+      "preconditions": [
+        "Gateway ECU active"
+      ],
+      "test_steps": [
+        "Monitor GW_SafetyMessage for extended duration",
+        "Extract CRC from each frame"
+      ],
+      "expected_result": "CRC field present and valid in all frames.",
+      "postconditions": [
+        "Ignition OFF"
+      ],
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_c05_007_crc_present_in_all_frames(can_bus):\n    msgs = collect_messages(can_bus, 0x119, 10)\n    for msg in msgs:\n        assert decode_crc(msg) is not None"
+    }
+  ]
+}

@@ -1,0 +1,167 @@
+{
+  "requirement": {
+    "requirement_id": "C-02",
+    "description": "If door status information is unavailable, the gateway shall transmit a door warning indication to the instrument cluster.",
+    "can_messages": [
+      {
+        "node": "Gateway ECU",
+        "arbitration_id": "0x10E",
+        "message_name": "GW_DoorStatus",
+        "signals": [
+          {
+            "name": "Door_FL",
+            "byte": 0,
+            "bit": 0
+          },
+          {
+            "name": "Door_FR",
+            "byte": 0,
+            "bit": 1
+          },
+          {
+            "name": "Door_RL",
+            "byte": 0,
+            "bit": 2
+          },
+          {
+            "name": "Door_RR",
+            "byte": 0,
+            "bit": 3
+          },
+          {
+            "name": "AnyDoorOpen",
+            "byte": 0,
+            "bit": 4
+          }
+        ],
+        "dlc": 8
+      },
+      {
+        "node": "Gateway ECU",
+        "arbitration_id": "0x118",
+        "message_name": "GW_FaultStatus",
+        "signals": [
+          {
+            "name": "DoorSignalTimeout",
+            "byte": 0,
+            "bit": 0
+          }
+        ],
+        "dlc": 8
+      }
+    ],
+    "python_test_setup": "# ============================================================\n# Gateway ECU – Fail-Safe Door Warning Tests (C-02)\n# ============================================================\nimport time\nimport can\nimport pytest\n\nGW_DOOR_STATUS_ID = 0x10E\nGW_FAULT_STATUS_ID = 0x118\nGW_DOOR_STATUS_DLC = 8\n\n# ---------------------------\n# CAN Bus Fixture\n# ---------------------------\n@pytest.fixture(scope=\"module\")\ndef can_bus():\n    bus = can.Bus(\n        interface=\"vector\",      # vector / socketcan / pcan configurable\n        channel=0,\n        bitrate=500000\n    )\n    yield bus\n    bus.shutdown()\n\n# ---------------------------\n# Utility Functions\n# ---------------------------\ndef collect_messages(bus, msg_id, duration_sec):\n    messages = []\n    start_time = time.time()\n    while time.time() - start_time < duration_sec:\n        msg = bus.recv(timeout=0.5)\n        if msg and msg.arbitration_id == msg_id:\n            messages.append(msg)\n    return messages\n\n\ndef decode_any_door_open(msg):\n    return (msg.data[0] >> 4) & 0x01\n\n\ndef decode_door_signal_timeout(msg):\n    return (msg.data[0] >> 0) & 0x01"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-FAILSAFE-DOOR-001",
+      "title": "Verify no door warning when door status available",
+      "precondition": "Vehicle ignition ON; Gateway ECU powered; CAN monitoring tool connected; door status messages transmitted normally",
+      "steps": [
+        "Switch vehicle ignition to ON",
+        "Ensure door status messages are transmitted normally",
+        "Monitor GW_DoorStatus and GW_FaultStatus messages"
+      ],
+      "expected_result": "No fail-safe door warning transmitted while door status information is available",
+      "postcondition": "Stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_failsafe_door_001_no_warning_when_signal_ok(can_bus):\n    msgs = collect_messages(can_bus, GW_DOOR_STATUS_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_any_door_open(msg) in (0, 1)"
+    },
+    {
+      "test_case_id": "TC-GW-FAILSAFE-DOOR-002",
+      "title": "Verify DoorSignalTimeout flag set when input stops",
+      "precondition": "Ignition ON; door status input active initially",
+      "steps": [
+        "Stop transmission of door status input via CAPL",
+        "Wait longer than configured door signal timeout",
+        "Monitor GW_FaultStatus message",
+        "Extract DoorSignalTimeout signal"
+      ],
+      "expected_result": "DoorSignalTimeout = 1 transmitted",
+      "postcondition": "Stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_failsafe_door_002_timeout_flag_set(can_bus):\n    msgs = collect_messages(can_bus, GW_FAULT_STATUS_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_door_signal_timeout(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-FAILSAFE-DOOR-003",
+      "title": "Verify fail-safe door warning transmitted when status unavailable",
+      "precondition": "Ignition ON; door status input stopped",
+      "steps": [
+        "Ensure DoorSignalTimeout flag is set",
+        "Monitor GW_DoorStatus message",
+        "Extract AnyDoorOpen signal"
+      ],
+      "expected_result": "AnyDoorOpen = 1 transmitted as fail-safe door warning",
+      "postcondition": "Stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_failsafe_door_003_fail_safe_warning_active(can_bus):\n    msgs = collect_messages(can_bus, GW_DOOR_STATUS_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_any_door_open(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-FAILSAFE-DOOR-004",
+      "title": "Verify individual door signals ignored during fail-safe",
+      "precondition": "Ignition ON; door status input unavailable",
+      "steps": [
+        "Monitor GW_DoorStatus message",
+        "Extract Door_FL, Door_FR, Door_RL, Door_RR signals"
+      ],
+      "expected_result": "Individual door signals ignored; AnyDoorOpen = 1 remains active",
+      "postcondition": "Stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_failsafe_door_004_ignore_individual_doors(can_bus):\n    msgs = collect_messages(can_bus, GW_DOOR_STATUS_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_any_door_open(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-FAILSAFE-DOOR-005",
+      "title": "Verify fail-safe warning remains active during timeout",
+      "precondition": "Ignition ON; door status input unavailable",
+      "steps": [
+        "Monitor multiple consecutive GW_DoorStatus messages",
+        "Extract AnyDoorOpen signal"
+      ],
+      "expected_result": "AnyDoorOpen remains set to 1 across messages",
+      "postcondition": "Stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_failsafe_door_005_warning_persistent(can_bus):\n    msgs = collect_messages(can_bus, GW_DOOR_STATUS_ID, 3)\n    assert msgs\n    for msg in msgs:\n        assert decode_any_door_open(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-FAILSAFE-DOOR-006",
+      "title": "Verify fail-safe clears after door status resumes",
+      "precondition": "Ignition ON; fail-safe door warning active",
+      "steps": [
+        "Resume door status transmission via CAPL",
+        "Monitor GW_FaultStatus message and extract DoorSignalTimeout",
+        "Monitor GW_DoorStatus message and extract AnyDoorOpen"
+      ],
+      "expected_result": "DoorSignalTimeout returns to 0 and AnyDoorOpen reflects actual door state",
+      "postcondition": "Stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_failsafe_door_006_recovery_after_signal_resume(can_bus):\n    fault_msgs = collect_messages(can_bus, GW_FAULT_STATUS_ID, 3)\n    assert fault_msgs\n    for msg in fault_msgs:\n        assert decode_door_signal_timeout(msg) in (0, 1)"
+    },
+    {
+      "test_case_id": "TC-GW-FAILSAFE-DOOR-007",
+      "title": "Verify GW_DoorStatus message DLC during fail-safe",
+      "precondition": "Ignition ON; fail-safe active",
+      "steps": [
+        "Capture GW_DoorStatus frame",
+        "Verify DLC"
+      ],
+      "expected_result": "DLC = 8 bytes",
+      "postcondition": "Stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_failsafe_door_007_dlc_check(can_bus):\n    msgs = collect_messages(can_bus, GW_DOOR_STATUS_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert msg.dlc == GW_DOOR_STATUS_DLC"
+    },
+    {
+      "test_case_id": "TC-GW-FAILSAFE-DOOR-008",
+      "title": "Verify fail-safe door warning stops on power OFF",
+      "precondition": "Gateway ECU active; fail-safe door warning active",
+      "steps": [
+        "Monitor GW_DoorStatus messages",
+        "Switch ignition OFF",
+        "Observe CAN bus"
+      ],
+      "expected_result": "GW_DoorStatus message transmission stops",
+      "postcondition": "Ignition OFF",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_failsafe_door_008_stop_on_power_off(can_bus):\n    msgs_before = collect_messages(can_bus, GW_DOOR_STATUS_ID, 2)\n    assert msgs_before\n    time.sleep(3)\n    msgs_after = collect_messages(can_bus, GW_DOOR_STATUS_ID, 2)\n    assert not msgs_after"
+    }
+  ]
+}

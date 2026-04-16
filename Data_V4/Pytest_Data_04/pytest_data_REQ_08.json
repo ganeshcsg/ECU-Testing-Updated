@@ -1,0 +1,140 @@
+{
+  "requirement": {
+    "requirement_id": "REQ_08",
+    "description": "The system shall evaluate vehicle speed, door status, and engine temperature together to determine whether one or more warnings must be activated.",
+    "can_messages": [
+      {
+        "node": "VehicleDynamics",
+        "arbitration_id": "0x2D0",
+        "message_name": "Vehicle_Dynamics",
+        "dlc": 8,
+        "signals": [
+          {
+            "name": "VehicleSpeed",
+            "start_bit": 0,
+            "length": 16,
+            "formula": "Speed(km/h) = raw * 0.01"
+          }
+        ]
+      },
+      {
+        "node": "Body_Status",
+        "arbitration_id": "0x2DA",
+        "message_name": "Door_Status",
+        "signals": [
+          {
+            "name": "AnyDoorOpen",
+            "start_bit": 0,
+            "length": 1
+          }
+        ]
+      },
+      {
+        "node": "EngineECU",
+        "arbitration_id": "0x2C6",
+        "message_name": "Engine_Data",
+        "signals": [
+          {
+            "name": "EngineTemp",
+            "formula": "Temp(°C) = raw - 40"
+          }
+        ]
+      },
+      {
+        "node": "Gateway",
+        "arbitration_id": "0x2E4",
+        "message_name": "Gateway_Warnings",
+        "signals": [
+          {
+            "name": "OverspeedWarn",
+            "start_bit": 0,
+            "length": 1
+          },
+          {
+            "name": "DoorOpenWarn",
+            "start_bit": 1,
+            "length": 1
+          },
+          {
+            "name": "HighTempWarn",
+            "start_bit": 2,
+            "length": 1
+          }
+        ]
+      }
+    ]
+  },
+
+  "test_cases": [
+
+    {
+      "test_case_id": "TC-GW-S13-001",
+      "test_objective": "Verify overspeed warning activates when speed exceeds threshold only.",
+      "preconditions": [
+        "Ignition ON",
+        "Doors closed",
+        "Engine temperature normal"
+      ],
+      "expected_result": "OverspeedWarn=1; DoorOpenWarn=0; HighTempWarn=0",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s13_001(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_TIME)\n    for m in msgs:\n        assert decode_overspeed_warn(m) == 1\n        assert decode_door_warn(m) == 0\n        assert decode_high_temp_warn(m) == 0"
+    },
+
+    {
+      "test_case_id": "TC-GW-S13-002",
+      "test_objective": "Verify door-open warning activates when any door open and speed > 0.",
+      "expected_result": "DoorOpenWarn=1; others=0",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s13_002(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_TIME)\n    for m in msgs:\n        assert decode_door_warn(m) == 1\n        assert decode_overspeed_warn(m) == 0\n        assert decode_high_temp_warn(m) == 0"
+    },
+
+    {
+      "test_case_id": "TC-GW-S13-003",
+      "test_objective": "Verify high-temperature warning activates when engine temperature exceeds limit.",
+      "expected_result": "HighTempWarn=1; others=0",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s13_003(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_TIME)\n    for m in msgs:\n        assert decode_high_temp_warn(m) == 1\n        assert decode_overspeed_warn(m) == 0\n        assert decode_door_warn(m) == 0"
+    },
+
+    {
+      "test_case_id": "TC-GW-S13-004",
+      "test_objective": "Verify overspeed and door-open warnings activate together.",
+      "expected_result": "OverspeedWarn=1; DoorOpenWarn=1; HighTempWarn=0",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s13_004(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_TIME)\n    for m in msgs:\n        assert decode_overspeed_warn(m) == 1\n        assert decode_door_warn(m) == 1\n        assert decode_high_temp_warn(m) == 0"
+    },
+
+    {
+      "test_case_id": "TC-GW-S13-005",
+      "test_objective": "Verify overspeed and high-temperature warnings activate together.",
+      "expected_result": "OverspeedWarn=1; HighTempWarn=1; DoorOpenWarn=0",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s13_005(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_TIME)\n    for m in msgs:\n        assert decode_overspeed_warn(m) == 1\n        assert decode_high_temp_warn(m) == 1\n        assert decode_door_warn(m) == 0"
+    },
+
+    {
+      "test_case_id": "TC-GW-S13-006",
+      "test_objective": "Verify door-open and high-temperature warnings activate together.",
+      "expected_result": "DoorOpenWarn=1; HighTempWarn=1; OverspeedWarn=0",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s13_006(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_TIME)\n    for m in msgs:\n        assert decode_door_warn(m) == 1\n        assert decode_high_temp_warn(m) == 1\n        assert decode_overspeed_warn(m) == 0"
+    },
+
+    {
+      "test_case_id": "TC-GW-S13-007",
+      "test_objective": "Verify all warnings activate simultaneously when all conditions are met.",
+      "expected_result": "All bits = 1",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s13_007(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_TIME)\n    for m in msgs:\n        assert decode_overspeed_warn(m) == 1\n        assert decode_door_warn(m) == 1\n        assert decode_high_temp_warn(m) == 1"
+    },
+
+    {
+      "test_case_id": "TC-GW-S13-008",
+      "test_objective": "Verify no warnings activate when all parameters are within limits.",
+      "expected_result": "All bits = 0",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s13_008(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_TIME)\n    for m in msgs:\n        assert decode_overspeed_warn(m) == 0\n        assert decode_door_warn(m) == 0\n        assert decode_high_temp_warn(m) == 0"
+    }
+
+  ]
+}

@@ -1,0 +1,183 @@
+{
+  "requirement": {
+    "requirement_id": "ECM-REQ-04",
+    "description": "The engine controller shall periodically transmit the current engine coolant temperature value to support thermal monitoring by other ECUs.",
+    "can_message": {
+      "node": "ECM",
+      "arbitration_id": "0x208",
+      "message_name": "ECM_Powertrain_Data",
+      "dlc": 8,
+      "signals": [
+        {
+          "name": "ECM_Engine_Temp",
+          "start_bit": 48,
+          "length": 8,
+          "byte_order": "little_endian",
+          "offset": -40,
+          "unit": "°C"
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-ECM-ENG-001",
+      "test_objective": "Verify periodic transmission of engine coolant temperature.",
+      "preconditions": [
+        "Ignition ON",
+        "ECM powered ON",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Start ignition",
+        "Monitor CAN ID 0x208 for 10 seconds",
+        "Count received frames"
+      ],
+      "expected_result": "Frame count >= 8",
+      "test_type": "Timing",
+      "python_test_script": "def test_tc_ecm_eng_001(can_bus):\n    start = time.time()\n    count = 0\n    while time.time() - start < 10:\n        m = can_bus.recv(0.5)\n        if m and m.arbitration_id == MSG_ID_ECM:\n            count += 1\n    assert count >= 8"
+    },
+    {
+      "test_case_id": "TC-ECM-ENG-002",
+      "test_objective": "Verify correct encoding of 0°C coolant temperature.",
+      "preconditions": [
+        "Ignition ON",
+        "Coolant temperature simulated to 0°C"
+      ],
+      "test_steps": [
+        "Set coolant temperature to 0°C",
+        "Capture ECM_Powertrain_Data message",
+        "Extract ECM_Engine_Temp raw value"
+      ],
+      "expected_result": "Raw value = 40",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_ecm_eng_002(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert get_raw_temp(msg) == 40"
+    },
+    {
+      "test_case_id": "TC-ECM-ENG-003",
+      "test_objective": "Verify minimum temperature boundary (-40°C).",
+      "preconditions": [
+        "Ignition ON",
+        "Coolant temperature simulated to -40°C"
+      ],
+      "test_steps": [
+        "Simulate coolant temperature at -40°C",
+        "Capture CAN frame",
+        "Decode ECM_Engine_Temp"
+      ],
+      "expected_result": "Raw value = 0 and decoded value = -40°C",
+      "test_type": "Boundary",
+      "python_test_script": "def test_tc_ecm_eng_003(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert get_raw_temp(msg) == 0\n    assert get_phys_temp(msg) == -40"
+    },
+    {
+      "test_case_id": "TC-ECM-ENG-004",
+      "test_objective": "Verify maximum temperature boundary (215°C).",
+      "preconditions": [
+        "Ignition ON",
+        "Coolant temperature simulated to 215°C"
+      ],
+      "test_steps": [
+        "Simulate coolant temperature at 215°C",
+        "Capture CAN frame",
+        "Decode ECM_Engine_Temp"
+      ],
+      "expected_result": "Raw value = 255 and decoded value = 215°C",
+      "test_type": "Boundary",
+      "python_test_script": "def test_tc_ecm_eng_004(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert get_raw_temp(msg) == 255\n    assert get_phys_temp(msg) == 215"
+    },
+    {
+      "test_case_id": "TC-ECM-ENG-005",
+      "test_objective": "Verify mid-range temperature value encoding (90°C).",
+      "preconditions": [
+        "Ignition ON",
+        "Coolant temperature simulated to 90°C"
+      ],
+      "test_steps": [
+        "Simulate coolant temperature at 90°C",
+        "Capture ECM_Powertrain_Data message",
+        "Extract raw temperature value"
+      ],
+      "expected_result": "Raw value = 130",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_ecm_eng_005(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert get_raw_temp(msg) == 130"
+    },
+    {
+      "test_case_id": "TC-ECM-ENG-006",
+      "test_objective": "Verify monotonic increase during rising temperature.",
+      "preconditions": [
+        "Ignition ON",
+        "Coolant temperature ramp enabled"
+      ],
+      "test_steps": [
+        "Increase temperature from 60°C to 100°C",
+        "Capture successive CAN frames",
+        "Decode temperature values"
+      ],
+      "expected_result": "Decoded temperature increases monotonically",
+      "test_type": "Dynamic",
+      "python_test_script": "def test_tc_ecm_eng_006(can_bus):\n    vals = [get_phys_temp(can_bus.recv()) for _ in range(5)]\n    assert vals == sorted(vals)"
+    },
+    {
+      "test_case_id": "TC-ECM-ENG-007",
+      "test_objective": "Verify reliability of periodic transmission over time.",
+      "preconditions": [
+        "Ignition ON",
+        "Stable engine state"
+      ],
+      "test_steps": [
+        "Monitor CAN traffic for 20 seconds",
+        "Count received ECM frames"
+      ],
+      "expected_result": "No transmission gaps; minimum 16 frames received",
+      "test_type": "Robustness",
+      "python_test_script": "def test_tc_ecm_eng_007(can_bus):\n    start = time.time()\n    msgs = []\n    while time.time() - start < 20:\n        m = can_bus.recv(0.1)\n        if m and m.arbitration_id == MSG_ID_ECM:\n            msgs.append(m)\n    assert len(msgs) >= 16"
+    },
+    {
+      "test_case_id": "TC-ECM-ENG-008",
+      "test_objective": "Verify out-of-range temperature clamping.",
+      "preconditions": [
+        "Ignition ON",
+        "Temperature injected above valid range"
+      ],
+      "test_steps": [
+        "Inject temperature greater than 215°C",
+        "Capture CAN message",
+        "Decode temperature"
+      ],
+      "expected_result": "Decoded temperature ≤ 215°C",
+      "test_type": "Negative",
+      "python_test_script": "def test_tc_ecm_eng_008(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert get_phys_temp(msg) <= 215"
+    },
+    {
+      "test_case_id": "TC-ECM-ENG-009",
+      "test_objective": "Verify correct byte placement of temperature signal.",
+      "preconditions": [
+        "Ignition ON",
+        "CAN monitoring active"
+      ],
+      "test_steps": [
+        "Capture raw CAN frame",
+        "Inspect Byte 6"
+      ],
+      "expected_result": "Byte 6 contains ECM_Engine_Temp signal",
+      "test_type": "Structural",
+      "python_test_script": "def test_tc_ecm_eng_009(can_bus):\n    msg = can_bus.recv()\n    assert len(msg.data) >= 7\n    assert msg.data[6] == get_raw_temp(msg)"
+    },
+    {
+      "test_case_id": "TC-ECM-ENG-010",
+      "test_objective": "Verify integration consistency with forwarded signals.",
+      "preconditions": [
+        "Ignition ON",
+        "Gateway ECU active"
+      ],
+      "test_steps": [
+        "Capture ECM message",
+        "Compare with gateway forwarded signal"
+      ],
+      "expected_result": "ECM and gateway temperature values match",
+      "test_type": "Integration",
+      "python_test_script": "def test_tc_ecm_eng_010(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert msg.arbitration_id == 0x208"
+    }
+  ]
+}

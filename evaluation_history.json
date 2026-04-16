@@ -1,0 +1,62 @@
+{
+  "history": [
+    {
+      "timestamp": "2026-04-06 17:57:02",
+      "requirement_hash": "d41d8cd9",
+      "metrics": {
+        "similarity_score": 0.16996805111821087,
+        "structural_accuracy": 0.75,
+        "signal_accuracy": 0.75,
+        "syntax_validity": true,
+        "line_count_diff": 44,
+        "word_overlap": 0.3515625,
+        "function_coverage": 1.0,
+        "overall_score": 0.6674920127795527
+      },
+      "scripts": {
+        "generated": "/*\n  Auto-generated CAPL simulation script\n  Requirement: The gateway shall periodically transmit the current engine speed value to the instrument cluster using the most recently received engine speed data.\n  Target ECU: ECM\n  Target messages: ECM_Status\n  Simulation type: SINGLE_ECU_TRANSMIT | Mode: CYCLIC\n*/\n// Variables block\nmessage ECM_Status msgECMStatus;\nmsTimer tmECMStatus;\nconst int cCycleTime = 20;\n\n// On start handler\non start()\n{\n    log(\"Simulation started\");\n    \n    // Initialize output signals\n    msgECMStatus.byte(0) = 0; // SpeedValue (1 byte)\n    msgECMStatus.byte(1) = 0; // RpmValue (1 byte)\n    \n    setTimer(tmECMStatus, cCycleTime);\n}\n\n// On timer handler\non timer tmECMStatus()\n{\n    // Pack output signals into the payload\n    for (i = 0; i < 8; i++) msgECMStatus.byte(i) = 0;\n    msgECMStatus.byte(0) = SpeedValue >> 0 & 0xFF; // Shift and mask SpeedValue\n    msgECMStatus.byte(1) = RpmValue >> 0 & 0xFF; // Shift and mask RpmValue\n    \n    output(msgECMStatus);\n    \n    setTimer(tmECMStatus, cCycleTime); // Restart the timer\n}",
+        "ground_truth": "/*\n  Requirement:\n  The gateway shall periodically transmit the current engine speed value\n  to the instrument cluster using the most recently received engine speed data.\n*/\n\n// ========== Variable declarations ==========\nvariables {\n  message GW_Consolidated_Status1 msgGWConsolidatedStatus1;\n  msTimer tmGWConsolidatedStatus1;\n\n  const int cCycleTime = 50;\n\n  int stored_EngineRPM = 0;   // latest received RPM\n  int rpmAge = 0;             // freshness counter (timeout handling)\n\n  const int RPM_TIMEOUT_LIMIT = 5; // number of cycles before data is stale\n}\n\n// ========== Initialization ==========\non start {\n  write(\"Gateway simulation started.\");\n\n  int i;\n  for (i = 0; i < 8; i++) {\n    msgGWConsolidatedStatus1.byte(i) = 0;\n  }\n\n  rpmAge = RPM_TIMEOUT_LIMIT; // initially invalid until first reception\n\n  setTimer(tmGWConsolidatedStatus1, cCycleTime);\n}\n\n// ========== Input message handler ==========\non message ECM_Status {\n\n  // Read engine speed from ECM\n  stored_EngineRPM = this.EngineRPM;\n\n  // Reset freshness counter \u2192 confirms \"most recent data\"\n  rpmAge = 0;\n}\n\n// ========== Cyclic transmission ==========\non timer tmGWConsolidatedStatus1 {\n\n  int i;\n  for (i = 0; i < 8; i++) {\n    msgGWConsolidatedStatus1.byte(i) = 0;\n  }\n\n  // -------- Freshness Check --------\n  if (rpmAge < RPM_TIMEOUT_LIMIT) {\n\n    // -------- Apply DBC scaling --------\n    // Example: scale = 1, offset = 0 (adjust if DBC differs)\n    int raw_RPM = stored_EngineRPM;\n\n    if (raw_RPM < 0) raw_RPM = 0;\n\n    // -------- Pack into message --------\n    msgGWConsolidatedStatus1.byte(0) = (byte)(raw_RPM & 0xFF);\n    msgGWConsolidatedStatus1.byte(1) = (byte)((raw_RPM >> 8) & 0xFF);\n  }\n  else {\n    // -------- Data stale handling --------\n    // Option: send 0 or keep last valid (here sending 0)\n    msgGWConsolidatedStatus1.byte(0) = 0;\n    msgGWConsolidatedStatus1.byte(1) = 0;\n  }\n\n  // -------- Transmit message --------\n  output(msgGWConsolidatedStatus1);\n\n  // Increment age counter\n  rpmAge++;\n\n  // Restart timer\n  setTimer(tmGWConsolidatedStatus1, cCycleTime);\n}"
+      },
+      "requirement": ""
+    },
+    {
+      "timestamp": "2026-04-07 10:57:32",
+      "requirement_hash": "d41d8cd9",
+      "metrics": {
+        "similarity_score": 0.0625,
+        "structural_accuracy": 0.75,
+        "signal_accuracy": 0.75,
+        "function_coverage": 1.0,
+        "overall_score": 0.640625,
+        "syntax_validity": true,
+        "line_count_diff": 43,
+        "word_overlap": 0.29850746268656714
+      },
+      "scripts": {
+        "generated": "/*\n  Auto-generated CAPL simulation script (deterministic byte-level fallback)\n  Requirement: The gateway shall periodically transmit the current engine speed value to the instrument cluster using the most recently received engine speed data.\n  Target ECU: ECM\n  Target messages: ECM_Status\n  Simulation type: SINGLE_ECU_TRANSMIT | Mode: CYCLIC\n*/\n\nvariables\n{\n  message ECM_Status msgECMStatus;\n  msTimer tmECMStatus;\n  const int cCycleTime = 20;\n  int i;\n  float SpeedValue_phys = 0.0;\n  int raw_SpeedValue = 0;\n  int RpmValue_phys = 0;\n  int raw_RpmValue = 0;\n}\n\non start\n{\n  log(\"Simulation started (deterministic byte-level).\");\n  msgECMStatus.dlc = 8;\n  msgECMStatus.FDF = 0;\n  msgECMStatus.BRS = 0;\n  setTimer(tmECMStatus, cCycleTime);\n}\n\non timer tmECMStatus\n{\n  // BYTE PACKING FOR MESSAGE ECM_Status (DLC=8)\n  // Clear payload bytes before packing\n  for (i = 0; i < 8; i++) msgECMStatus.byte(i) = 0;\n  output(msgECMStatus);\n  setTimer(tmECMStatus, cCycleTime);\n}",
+        "ground_truth": "/*\n  Requirement:\n  The gateway shall periodically transmit the current engine speed value\n  to the instrument cluster using the most recently received engine speed data.\n*/\n\n// ========== Variable declarations ==========\nvariables {\n  message GW_Consolidated_Status1 msgGWConsolidatedStatus1;\n  msTimer tmGWConsolidatedStatus1;\n\n  const int cCycleTime = 50;\n\n  int stored_EngineRPM = 0;   // latest received RPM\n  int rpmAge = 0;             // freshness counter (timeout handling)\n\n  const int RPM_TIMEOUT_LIMIT = 5; // number of cycles before data is stale\n}\n\n// ========== Initialization ==========\non start {\n  write(\"Gateway simulation started.\");\n\n  int i;\n  for (i = 0; i < 8; i++) {\n    msgGWConsolidatedStatus1.byte(i) = 0;\n  }\n\n  rpmAge = RPM_TIMEOUT_LIMIT; // initially invalid until first reception\n\n  setTimer(tmGWConsolidatedStatus1, cCycleTime);\n}\n\n// ========== Input message handler ==========\non message ECM_Status {\n\n  // Read engine speed from ECM\n  stored_EngineRPM = this.EngineRPM;\n\n  // Reset freshness counter \u2192 confirms \"most recent data\"\n  rpmAge = 0;\n}\n\n// ========== Cyclic transmission ==========\non timer tmGWConsolidatedStatus1 {\n\n  int i;\n  for (i = 0; i < 8; i++) {\n    msgGWConsolidatedStatus1.byte(i) = 0;\n  }\n\n  // -------- Freshness Check --------\n  if (rpmAge < RPM_TIMEOUT_LIMIT) {\n\n    // -------- Apply DBC scaling --------\n    // Example: scale = 1, offset = 0 (adjust if DBC differs)\n    int raw_RPM = stored_EngineRPM;\n\n    if (raw_RPM < 0) raw_RPM = 0;\n\n    // -------- Pack into message --------\n    msgGWConsolidatedStatus1.byte(0) = (byte)(raw_RPM & 0xFF);\n    msgGWConsolidatedStatus1.byte(1) = (byte)((raw_RPM >> 8) & 0xFF);\n  }\n  else {\n    // -------- Data stale handling --------\n    // Option: send 0 or keep last valid (here sending 0)\n    msgGWConsolidatedStatus1.byte(0) = 0;\n    msgGWConsolidatedStatus1.byte(1) = 0;\n  }\n\n  // -------- Transmit message --------\n  output(msgGWConsolidatedStatus1);\n\n  // Increment age counter\n  rpmAge++;\n\n  // Restart timer\n  setTimer(tmGWConsolidatedStatus1, cCycleTime);\n}"
+      },
+      "requirement": ""
+    },
+    {
+      "timestamp": "2026-04-09 11:29:24",
+      "requirement_hash": "d41d8cd9",
+      "metrics": {
+        "similarity_score": 0.0625,
+        "structural_accuracy": 0.75,
+        "signal_accuracy": 0.75,
+        "function_coverage": 1.0,
+        "overall_score": 0.640625,
+        "syntax_validity": true,
+        "line_count_diff": 43,
+        "word_overlap": 0.29850746268656714
+      },
+      "scripts": {
+        "generated": "/*\n  Auto-generated CAPL simulation script (deterministic byte-level fallback)\n  Requirement: The gateway shall periodically transmit the current engine speed value to the instrument cluster using the most recently received engine speed data.\n  Target ECU: ECM\n  Target messages: ECM_Status\n  Simulation type: SINGLE_ECU_TRANSMIT | Mode: CYCLIC\n*/\n\nvariables\n{\n  message ECM_Status msgECMStatus;\n  msTimer tmECMStatus;\n  const int cCycleTime = 20;\n  int i;\n  float SpeedValue_phys = 0.0;\n  int raw_SpeedValue = 0;\n  int RpmValue_phys = 0;\n  int raw_RpmValue = 0;\n}\n\non start\n{\n  log(\"Simulation started (deterministic byte-level).\");\n  msgECMStatus.dlc = 8;\n  msgECMStatus.FDF = 0;\n  msgECMStatus.BRS = 0;\n  setTimer(tmECMStatus, cCycleTime);\n}\n\non timer tmECMStatus\n{\n  // BYTE PACKING FOR MESSAGE ECM_Status (DLC=8)\n  // Clear payload bytes before packing\n  for (i = 0; i < 8; i++) msgECMStatus.byte(i) = 0;\n  output(msgECMStatus);\n  setTimer(tmECMStatus, cCycleTime);\n}",
+        "ground_truth": "/*\n  Requirement:\n  The gateway shall periodically transmit the current engine speed value\n  to the instrument cluster using the most recently received engine speed data.\n*/\n\n// ========== Variable declarations ==========\nvariables {\n  message GW_Consolidated_Status1 msgGWConsolidatedStatus1;\n  msTimer tmGWConsolidatedStatus1;\n\n  const int cCycleTime = 50;\n\n  int stored_EngineRPM = 0;   // latest received RPM\n  int rpmAge = 0;             // freshness counter (timeout handling)\n\n  const int RPM_TIMEOUT_LIMIT = 5; // number of cycles before data is stale\n}\n\n// ========== Initialization ==========\non start {\n  write(\"Gateway simulation started.\");\n\n  int i;\n  for (i = 0; i < 8; i++) {\n    msgGWConsolidatedStatus1.byte(i) = 0;\n  }\n\n  rpmAge = RPM_TIMEOUT_LIMIT; // initially invalid until first reception\n\n  setTimer(tmGWConsolidatedStatus1, cCycleTime);\n}\n\n// ========== Input message handler ==========\non message ECM_Status {\n\n  // Read engine speed from ECM\n  stored_EngineRPM = this.EngineRPM;\n\n  // Reset freshness counter \u2192 confirms \"most recent data\"\n  rpmAge = 0;\n}\n\n// ========== Cyclic transmission ==========\non timer tmGWConsolidatedStatus1 {\n\n  int i;\n  for (i = 0; i < 8; i++) {\n    msgGWConsolidatedStatus1.byte(i) = 0;\n  }\n\n  // -------- Freshness Check --------\n  if (rpmAge < RPM_TIMEOUT_LIMIT) {\n\n    // -------- Apply DBC scaling --------\n    // Example: scale = 1, offset = 0 (adjust if DBC differs)\n    int raw_RPM = stored_EngineRPM;\n\n    if (raw_RPM < 0) raw_RPM = 0;\n\n    // -------- Pack into message --------\n    msgGWConsolidatedStatus1.byte(0) = (byte)(raw_RPM & 0xFF);\n    msgGWConsolidatedStatus1.byte(1) = (byte)((raw_RPM >> 8) & 0xFF);\n  }\n  else {\n    // -------- Data stale handling --------\n    // Option: send 0 or keep last valid (here sending 0)\n    msgGWConsolidatedStatus1.byte(0) = 0;\n    msgGWConsolidatedStatus1.byte(1) = 0;\n  }\n\n  // -------- Transmit message --------\n  output(msgGWConsolidatedStatus1);\n\n  // Increment age counter\n  rpmAge++;\n\n  // Restart timer\n  setTimer(tmGWConsolidatedStatus1, cCycleTime);\n}"
+      },
+      "requirement": ""
+    }
+  ],
+  "last_updated": "2026-04-09 11:29:24"
+}

@@ -1,0 +1,101 @@
+{
+  "requirement": {
+    "requirement_id": "GW-REQ-03",
+    "description": "Upon reception of body status information, the gateway shall immediately evaluate the status of all monitored doors.",
+    "can_messages": [
+      {
+        "node": "GW",
+        "arbitration_id": "0xC8",
+        "signal": "AnyDoorOpen",
+        "start_bit": 16,
+        "length": 1
+      }
+    ],
+    "python_test_setup": "import can\nimport pytest\nimport time\n\nMSG_ID_GW_VEHICLE_STATUS = 0xC8\n\n@pytest.fixture(scope=\"module\")\ndef can_bus():\n    bus = can.Bus(bustype=\"socketcan\", channel=\"can0\", bitrate=500000)\n    yield bus\n    bus.shutdown()\n\ndef collect_messages(bus, arb_id, duration_sec):\n    messages = []\n    end_time = time.time() + duration_sec\n    while time.time() < end_time:\n        msg = bus.recv(timeout=0.5)\n        if msg and msg.arbitration_id == arb_id:\n            messages.append(msg)\n    return messages\n\ndef decode_any_door_open(msg):\n    return (msg.data[2] >> 0) & 0x01"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-DOOR-001",
+      "title": "Verify GW evaluates door status when all doors are closed",
+      "precondition": "Vehicle ignition ON; BCM transmitting BCM_BodyStatus; CAN monitoring tool connected and configured for message IDs 0x6E and 0xC8.",
+      "steps": [
+        "Start vehicle ignition.",
+        "Ensure DriverDoorOpen = 0 and PassengerDoorOpen = 0.",
+        "Monitor CAN bus for GW_VehicleStatus message.",
+        "Extract AnyDoorOpen signal from bit 16."
+      ],
+      "expected_result": "AnyDoorOpen = 0 indicating no doors open.",
+      "postcondition": "Ignition OFF; disconnect CAN monitoring tool.",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_door_001_all_closed(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GW_VEHICLE_STATUS, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_any_door_open(msg) == 0"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-002",
+      "title": "Verify GW evaluates door status when driver door is open",
+      "precondition": "Same as TC-GW-DOOR-001",
+      "steps": [
+        "Set DriverDoorOpen = 1 and PassengerDoorOpen = 0.",
+        "Monitor GW_VehicleStatus.",
+        "Decode AnyDoorOpen."
+      ],
+      "expected_result": "AnyDoorOpen = 1.",
+      "postcondition": "Same as TC-GW-DOOR-001",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_door_002_driver_open(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GW_VEHICLE_STATUS, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_any_door_open(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-003",
+      "title": "Verify GW evaluates door status when passenger door is open",
+      "precondition": "Same as TC-GW-DOOR-001",
+      "steps": [
+        "Set DriverDoorOpen = 0 and PassengerDoorOpen = 1.",
+        "Monitor GW_VehicleStatus."
+      ],
+      "expected_result": "AnyDoorOpen = 1.",
+      "postcondition": "Same as TC-GW-DOOR-001",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_door_003_passenger_open(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GW_VEHICLE_STATUS, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_any_door_open(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-004",
+      "title": "Verify GW evaluates door status when both doors are open",
+      "precondition": "Same as TC-GW-DOOR-001",
+      "steps": [
+        "Set DriverDoorOpen = 1 and PassengerDoorOpen = 1.",
+        "Observe GW_VehicleStatus."
+      ],
+      "expected_result": "AnyDoorOpen = 1.",
+      "postcondition": "Same as TC-GW-DOOR-001",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_door_004_both_open(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GW_VEHICLE_STATUS, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_any_door_open(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-005",
+      "title": "Verify immediate evaluation on door status change",
+      "precondition": "Same as TC-GW-DOOR-001",
+      "steps": [
+        "Set both doors closed.",
+        "Open driver door.",
+        "Monitor next GW_VehicleStatus frame."
+      ],
+      "expected_result": "AnyDoorOpen changes from 0 to 1 immediately after BCM update.",
+      "postcondition": "Same as TC-GW-DOOR-001",
+      "test_type": "Timing",
+      "python_test_script": "def test_tc_gw_door_005_immediate_set(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GW_VEHICLE_STATUS, 3)\n    assert msgs\n    states = [decode_any_door_open(m) for m in msgs]\n    assert 0 in states and 1 in states\n    assert states[-1] == 1"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-006",
+      "title": "Verify GW clears door status immediately after doors close",
+      "precondition": "Same as TC-GW-DOOR-001",
+      "steps": [
+        "Set DriverDoorOpen = 1.",
+        "Close driver door (set to 0).",
+        "Monitor GW_VehicleStatus."
+      ],
+      "expected_result": "AnyDoorOpen returns to 0 without delay.",
+      "postcondition": "Same as TC-GW-DOOR-001",
+      "test_type": "Timing",
+      "python_test_script": "def test_tc_gw_door_006_immediate_clear(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GW_VEHICLE_STATUS, 3)\n    assert msgs\n    states = [decode_any_door_open(m) for m in msgs]\n    assert states[-1] == 0"
+    }
+  ]
+}

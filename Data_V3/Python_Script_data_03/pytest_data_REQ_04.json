@@ -1,0 +1,113 @@
+{
+  "requirement": {
+    "requirement_id": "ABS-REQ-01",
+    "description": "The ABS ECU shall transmit individual wheel speed signals for all four wheels with valid physical ranges during vehicle operation.",
+    "can_message": {
+      "node": "ABS",
+      "arbitration_id": "0x2BC",
+      "message_name": "ABS_Wheel_Info",
+      "signals": [
+        {
+          "name": "ABS_Wheel_FL_Speed",
+          "start_bit": 0,
+          "length": 12,
+          "byte_order": "little_endian",
+          "unit": "km/h",
+          "valid_range": "0–250"
+        },
+        {
+          "name": "ABS_Wheel_FR_Speed",
+          "start_bit": 12,
+          "length": 12,
+          "byte_order": "little_endian",
+          "unit": "km/h",
+          "valid_range": "0–250"
+        },
+        {
+          "name": "ABS_Wheel_RL_Speed",
+          "start_bit": 24,
+          "length": 12,
+          "byte_order": "little_endian",
+          "unit": "km/h",
+          "valid_range": "0–250"
+        },
+        {
+          "name": "ABS_Wheel_RR_Speed",
+          "start_bit": 36,
+          "length": 12,
+          "byte_order": "little_endian",
+          "unit": "km/h",
+          "valid_range": "0–250"
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-ABS-001",
+      "test_objective": "Verify Front-Left wheel speed signal is within valid range.",
+      "preconditions": [
+        "Ignition ON",
+        "Vehicle moving",
+        "ABS ECU active",
+        "CAN logger connected"
+      ],
+      "test_steps": [
+        "Start ignition",
+        "Drive vehicle at constant speed",
+        "Monitor CAN ID 0x2BC",
+        "Extract ABS_Wheel_FL_Speed"
+      ],
+      "expected_result": "ABS_Wheel_FL_Speed is within 0–250 km/h",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_abs_001_fl_speed_valid(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_ABS_WHEEL_INFO, 2)\n    assert msgs\n    for msg in msgs:\n        assert 0 <= decode_fl_speed(msg) <= 250"
+    },
+    {
+      "test_case_id": "TC-ABS-002",
+      "test_objective": "Verify Front-Right wheel speed signal is within valid range.",
+      "preconditions": [
+        "Ignition ON",
+        "Vehicle moving",
+        "ABS ECU active"
+      ],
+      "test_steps": [
+        "Monitor ABS_Wheel_Info message",
+        "Extract ABS_Wheel_FR_Speed"
+      ],
+      "expected_result": "ABS_Wheel_FR_Speed is within 0–250 km/h",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_abs_002_fr_speed_valid(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_ABS_WHEEL_INFO, 2)\n    assert msgs\n    for msg in msgs:\n        assert 0 <= decode_fr_speed(msg) <= 250"
+    },
+    {
+      "test_case_id": "TC-ABS-003",
+      "test_objective": "Verify Rear-Left wheel speed signal is within valid range.",
+      "preconditions": [
+        "Ignition ON",
+        "Vehicle moving"
+      ],
+      "test_steps": [
+        "Monitor ABS_Wheel_Info message",
+        "Extract ABS_Wheel_RL_Speed"
+      ],
+      "expected_result": "ABS_Wheel_RL_Speed is within 0–250 km/h",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_abs_003_rl_speed_valid(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_ABS_WHEEL_INFO, 2)\n    assert msgs\n    for msg in msgs:\n        assert 0 <= decode_rl_speed(msg) <= 250"
+    },
+    {
+      "test_case_id": "TC-ABS-004",
+      "test_objective": "Verify Rear-Right wheel speed signal is within valid range.",
+      "preconditions": [
+        "Ignition ON",
+        "Vehicle moving"
+      ],
+      "test_steps": [
+        "Monitor ABS_Wheel_Info message",
+        "Extract ABS_Wheel_RR_Speed"
+      ],
+      "expected_result": "ABS_Wheel_RR_Speed is within 0–250 km/h",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_abs_004_rr_speed_valid(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_ABS_WHEEL_INFO, 2)\n    assert msgs\n    for msg in msgs:\n        assert 0 <= decode_rr_speed(msg) <= 250"
+    }
+  ]
+}

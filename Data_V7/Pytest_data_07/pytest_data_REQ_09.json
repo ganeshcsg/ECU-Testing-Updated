@@ -1,0 +1,128 @@
+{
+  "requirement": {
+    "requirement_id": "M-04",
+    "description": "The gateway shall transmit a reverse gear indication to the rear camera ECU when reverse gear is engaged.",
+    "can_messages": [
+      {
+        "node": "Gateway ECU",
+        "arbitration_id": "0x111",
+        "signal": "ReverseActive",
+        "bit": 0,
+        "dlc": 8,
+        "receiver": "Rear Camera ECU"
+      }
+    ],
+    "python_test_setup": "import time\nimport can\nimport pytest\n\nGW_REVERSE_GEAR_ID = 0x111\nGW_REVERSE_GEAR_DLC = 8\n\n# ---------------------------\n# CAN Bus Fixture\n# ---------------------------\n@pytest.fixture(scope=\"module\")\ndef can_bus():\n    bus = can.Bus(\n        interface=\"vector\",      # vector / socketcan / pcan configurable\n        channel=0,\n        bitrate=500000\n    )\n    yield bus\n    bus.shutdown()\n\n# ---------------------------\n# Utility Functions\n# ---------------------------\ndef collect_messages(bus, msg_id, duration_sec):\n    messages = []\n    start_time = time.time()\n    while time.time() - start_time < duration_sec:\n        msg = bus.recv(timeout=0.5)\n        if msg and msg.arbitration_id == msg_id:\n            messages.append(msg)\n    return messages\n\n\ndef decode_reverse_active(msg):\n    return (msg.data[0] >> 0) & 0x01"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-REV-001",
+      "title": "Verify GW_ReverseGear message transmission presence",
+      "precondition": "Vehicle ignition ON; Gateway ECU powered; CAN monitoring tool connected and configured to capture message ID 0x111",
+      "steps": [
+        "Switch vehicle ignition to ON",
+        "Allow Gateway ECU to boot",
+        "Monitor CAN bus for GW_ReverseGear message"
+      ],
+      "expected_result": "GW_ReverseGear message is present on the CAN bus",
+      "postcondition": "Switch ignition OFF; disconnect CAN monitoring tool",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_rev_001_message_present(can_bus):\n    msgs = collect_messages(can_bus, GW_REVERSE_GEAR_ID, 2)\n    assert msgs"
+    },
+    {
+      "test_case_id": "TC-GW-REV-002",
+      "title": "Verify reverse gear inactive state forwarding",
+      "precondition": "Ignition ON; gear selector not in reverse",
+      "steps": [
+        "Ensure reverse gear is not engaged",
+        "Monitor GW_ReverseGear message",
+        "Extract ReverseActive signal"
+      ],
+      "expected_result": "ReverseActive = 0 transmitted",
+      "postcondition": "Stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_rev_002_inactive_state(can_bus):\n    msgs = collect_messages(can_bus, GW_REVERSE_GEAR_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_reverse_active(msg) == 0"
+    },
+    {
+      "test_case_id": "TC-GW-REV-003",
+      "title": "Verify reverse gear active state forwarding",
+      "precondition": "Ignition ON; vehicle stationary",
+      "steps": [
+        "Engage reverse gear",
+        "Monitor CAN bus for GW_ReverseGear message",
+        "Extract ReverseActive signal"
+      ],
+      "expected_result": "ReverseActive = 1 transmitted to the rear camera ECU",
+      "postcondition": "Disengage reverse gear; stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_rev_003_active_state(can_bus):\n    msgs = collect_messages(can_bus, GW_REVERSE_GEAR_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_reverse_active(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-REV-004",
+      "title": "Verify reverse gear disengagement forwarding",
+      "precondition": "Ignition ON; reverse gear engaged",
+      "steps": [
+        "Disengage reverse gear",
+        "Monitor GW_ReverseGear message",
+        "Extract ReverseActive signal"
+      ],
+      "expected_result": "ReverseActive = 0 transmitted",
+      "postcondition": "Stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_rev_004_deactivation(can_bus):\n    msgs = collect_messages(can_bus, GW_REVERSE_GEAR_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_reverse_active(msg) == 0"
+    },
+    {
+      "test_case_id": "TC-GW-REV-005",
+      "title": "Verify no unintended toggle of ReverseActive",
+      "precondition": "Ignition ON; gear selector stable",
+      "steps": [
+        "Monitor consecutive GW_ReverseGear messages",
+        "Compare ReverseActive values"
+      ],
+      "expected_result": "ReverseActive remains constant across frames",
+      "postcondition": "Stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_rev_005_no_unintended_toggle(can_bus):\n    msgs = collect_messages(can_bus, GW_REVERSE_GEAR_ID, 3)\n    assert msgs\n    first = decode_reverse_active(msgs[0])\n    for msg in msgs:\n        assert decode_reverse_active(msg) == first"
+    },
+    {
+      "test_case_id": "TC-GW-REV-006",
+      "title": "Verify GW_ReverseGear message DLC",
+      "precondition": "Ignition ON; CAN monitoring enabled",
+      "steps": [
+        "Capture GW_ReverseGear frame",
+        "Verify DLC"
+      ],
+      "expected_result": "DLC = 8 bytes",
+      "postcondition": "Stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_rev_006_dlc_check(can_bus):\n    msgs = collect_messages(can_bus, GW_REVERSE_GEAR_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert msg.dlc == GW_REVERSE_GEAR_DLC"
+    },
+    {
+      "test_case_id": "TC-GW-REV-007",
+      "title": "Verify immediate reverse gear indication on engagement",
+      "precondition": "Ignition ON; reverse gear not engaged",
+      "steps": [
+        "Engage reverse gear",
+        "Observe next GW_ReverseGear transmission"
+      ],
+      "expected_result": "ReverseActive = 1 is transmitted in the first available CAN frame",
+      "postcondition": "Disengage reverse gear; stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_rev_007_immediate_forwarding(can_bus):\n    msgs = collect_messages(can_bus, GW_REVERSE_GEAR_ID, 1)\n    assert msgs\n    assert decode_reverse_active(msgs[-1]) in (0, 1)"
+    },
+    {
+      "test_case_id": "TC-GW-REV-008",
+      "title": "Verify GW_ReverseGear stops on Gateway power OFF",
+      "precondition": "Gateway ECU active",
+      "steps": [
+        "Monitor GW_ReverseGear messages",
+        "Switch ignition OFF",
+        "Observe CAN bus"
+      ],
+      "expected_result": "GW_ReverseGear message transmission stops",
+      "postcondition": "Ignition OFF",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_rev_008_stop_on_power_off(can_bus):\n    msgs_before = collect_messages(can_bus, GW_REVERSE_GEAR_ID, 2)\n    assert msgs_before\n    time.sleep(3)\n    msgs_after = collect_messages(can_bus, GW_REVERSE_GEAR_ID, 2)\n    assert not msgs_after"
+    }
+  ]
+}

@@ -1,0 +1,196 @@
+{
+  "requirement": {
+    "requirement_id": "GW-REQ-05",
+    "description": "The gateway shall periodically transmit a vehicle speed value derived from the most recently received engine speed or wheel speed information.",
+    "can_messages": [
+      {
+        "node": "ECM",
+        "arbitration_id": "0x208",
+        "message_name": "ECM_Powertrain_Data",
+        "signals": [
+          {
+            "name": "ECM_Vehicle_Speed",
+            "start_bit": 8,
+            "length": 16,
+            "byte_order": "little_endian",
+            "scale": 0.01,
+            "unit": "km/h"
+          }
+        ]
+      },
+      {
+        "node": "ABS",
+        "arbitration_id": "0x2BC",
+        "message_name": "ABS_Wheel_Info",
+        "signals": [
+          {
+            "name": "ABS_Wheel_Speed_All",
+            "description": "Average of four wheels used by GW",
+            "start_bit": 0,
+            "length": 16,
+            "byte_order": "little_endian",
+            "scale": 0.01,
+            "unit": "km/h"
+          }
+        ]
+      },
+      {
+        "node": "GW",
+        "arbitration_id": "0x384",
+        "message_name": "GW_System_Overview",
+        "dlc": 8,
+        "signals": [
+          {
+            "name": "GWS_Vehicle_Speed",
+            "start_bit": 8,
+            "length": 16,
+            "byte_order": "little_endian",
+            "scale": 0.01,
+            "unit": "km/h"
+          }
+        ]
+      }
+    ]
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-VS-001",
+      "test_objective": "Verify GW transmits vehicle speed equal to ECM vehicle speed.",
+      "preconditions": [
+        "Ignition ON",
+        "ECM transmitting ECM_Powertrain_Data",
+        "CAN monitoring active"
+      ],
+      "test_steps": [
+        "Set ECM_Vehicle_Speed = 50 km/h",
+        "Monitor GW_System_Overview (0x384)",
+        "Decode GWS_Vehicle_Speed"
+      ],
+      "expected_result": "GWS_Vehicle_Speed = 50 km/h and periodic transmission observed",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_vs_001(can_bus):\n    msgs = collect_messages(can_bus, 0x384, 2)\n    assert msgs\n    for m in msgs:\n        assert decode_gws_vehicle_speed(m) == 50"
+    },
+
+    {
+      "test_case_id": "TC-GW-VS-002",
+      "test_objective": "Verify GW derives speed from ABS wheel speeds.",
+      "preconditions": [
+        "Ignition ON",
+        "ABS transmitting wheel speeds"
+      ],
+      "test_steps": [
+        "Set all wheel speeds = 60 km/h",
+        "Monitor GW output"
+      ],
+      "expected_result": "GWS_Vehicle_Speed = 60 km/h",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_vs_002(can_bus):\n    msgs = collect_messages(can_bus, 0x384, 2)\n    assert msgs\n    for m in msgs:\n        assert decode_gws_vehicle_speed(m) == 60"
+    },
+
+    {
+      "test_case_id": "TC-GW-VS-003",
+      "test_objective": "Verify most recent source overrides previous source.",
+      "preconditions": ["Ignition ON"],
+      "test_steps": [
+        "ECM sends 40 km/h",
+        "ABS later sends 70 km/h",
+        "Monitor GW speed"
+      ],
+      "expected_result": "GWS_Vehicle_Speed = 70 km/h",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_vs_003(can_bus):\n    msgs = collect_messages(can_bus, 0x384, 3)\n    assert msgs\n    assert decode_gws_vehicle_speed(msgs[-1]) == 70"
+    },
+
+    {
+      "test_case_id": "TC-GW-VS-004",
+      "test_objective": "Verify zero speed transmission.",
+      "preconditions": ["Ignition ON"],
+      "test_steps": [
+        "Set ECM_Vehicle_Speed = 0",
+        "Monitor GW output"
+      ],
+      "expected_result": "GWS_Vehicle_Speed = 0",
+      "test_type": "Boundary",
+      "python_test_script": "def test_tc_gw_vs_004(can_bus):\n    msgs = collect_messages(can_bus, 0x384, 2)\n    assert msgs\n    for m in msgs:\n        assert decode_gws_vehicle_speed(m) == 0"
+    },
+
+    {
+      "test_case_id": "TC-GW-VS-005",
+      "test_objective": "Verify maximum speed limit.",
+      "preconditions": ["Ignition ON"],
+      "test_steps": [
+        "Set ECM_Vehicle_Speed = 260 km/h",
+        "Monitor GW output"
+      ],
+      "expected_result": "GWS_Vehicle_Speed = 260 km/h",
+      "test_type": "Boundary",
+      "python_test_script": "def test_tc_gw_vs_005(can_bus):\n    msgs = collect_messages(can_bus, 0x384, 2)\n    assert msgs\n    for m in msgs:\n        assert decode_gws_vehicle_speed(m) == 260"
+    },
+
+    {
+      "test_case_id": "TC-GW-VS-006",
+      "test_objective": "Verify scaling accuracy.",
+      "preconditions": ["Ignition ON"],
+      "test_steps": [
+        "Inject raw value 12345",
+        "Decode GW speed"
+      ],
+      "expected_result": "Speed = raw × 0.01",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_vs_006(can_bus):\n    msgs = collect_messages(can_bus, 0x384, 2)\n    raw = extract_signal(msgs[0].data, 8, 16)\n    assert decode_gws_vehicle_speed(msgs[0]) == raw * 0.01"
+    },
+
+    {
+      "test_case_id": "TC-GW-VS-007",
+      "test_objective": "Verify periodic transmission.",
+      "preconditions": ["Ignition ON"],
+      "test_steps": [
+        "Monitor GW_System_Overview for 5 seconds"
+      ],
+      "expected_result": "Multiple frames observed at expected cycle time",
+      "test_type": "Timing",
+      "python_test_script": "def test_tc_gw_vs_007(can_bus):\n    msgs = collect_messages(can_bus, 0x384, 5)\n    assert len(msgs) >= 5"
+    },
+
+    {
+      "test_case_id": "TC-GW-VS-008",
+      "test_objective": "Verify fallback to ECM when ABS unavailable.",
+      "preconditions": ["Ignition ON"],
+      "test_steps": [
+        "Stop ABS messages",
+        "ECM sends 55 km/h",
+        "Monitor GW output"
+      ],
+      "expected_result": "Speed derived from ECM = 55 km/h",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_vs_008(can_bus):\n    msgs = collect_messages(can_bus, 0x384, 3)\n    assert msgs\n    for m in msgs:\n        assert decode_gws_vehicle_speed(m) == 55"
+    },
+
+    {
+      "test_case_id": "TC-GW-VS-009",
+      "test_objective": "Verify speed consistency during gear change.",
+      "preconditions": ["Ignition ON"],
+      "test_steps": [
+        "Trigger gear shift",
+        "Monitor speed continuity"
+      ],
+      "expected_result": "No abnormal spikes or drops",
+      "test_type": "Robustness",
+      "python_test_script": "def test_tc_gw_vs_009(can_bus):\n    msgs = collect_messages(can_bus, 0x384, 3)\n    speeds = [decode_gws_vehicle_speed(m) for m in msgs]\n    assert max(speeds) - min(speeds) < 10"
+    },
+
+    {
+      "test_case_id": "TC-GW-VS-010",
+      "test_objective": "Verify message ID and signal placement.",
+      "preconditions": ["Ignition ON"],
+      "test_steps": [
+        "Monitor CAN ID 0x384",
+        "Extract bits 8–23"
+      ],
+      "expected_result": "Signal correctly placed in bits 8–23",
+      "test_type": "Interface",
+      "python_test_script": "def test_tc_gw_vs_010(can_bus):\n    msgs = collect_messages(can_bus, 0x384, 2)\n    raw = extract_signal(msgs[0].data, 8, 16)\n    assert raw >= 0"
+    }
+  ]
+}

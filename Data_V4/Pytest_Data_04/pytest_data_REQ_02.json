@@ -1,0 +1,167 @@
+{
+  "requirement": {
+    "requirement_id": "REQ_02",
+    "description": "When the front-right door changes from open to closed, the system shall immediately make the updated door status available to the display controller.",
+    "can_message": {
+      "node": "Gateway/BCM",
+      "arbitration_id": "0x2DA",
+      "message_name": "Body_Status",
+      "dlc": 8,
+      "signals": [
+        {
+          "name": "DoorFR",
+          "start_bit": 1,
+          "length": 1,
+          "byte_order": "little_endian",
+          "values": {
+            "0": "Closed",
+            "1": "Open"
+          }
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-S02-001",
+      "test_objective": "Verify DoorFR transitions from Open (1) to Closed (0) when the door is closed.",
+      "preconditions": [
+        "Ignition ON",
+        "Front-right door initially open",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Close front-right door",
+        "Monitor CAN ID 0x2DA",
+        "Decode DoorFR signal"
+      ],
+      "expected_result": "DoorFR transitions 1 → 0 and is transmitted immediately",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s02_001_doorfr_open_to_closed(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_BODY_STATUS, CAPTURE_TIME)\n    assert msgs\n    assert decode_door_fr(msgs[-1]) == 0"
+    },
+
+    {
+      "test_case_id": "TC-GW-S02-002",
+      "test_objective": "Verify DoorFR remains Closed after closing the door.",
+      "preconditions": [
+        "Ignition ON",
+        "Front-right door closed",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Capture Body_Status continuously",
+        "Decode DoorFR for each frame"
+      ],
+      "expected_result": "DoorFR remains 0 in all received frames",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s02_002_doorfr_stays_closed(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_BODY_STATUS, CAPTURE_TIME)\n    for msg in msgs:\n        assert decode_door_fr(msg) == 0"
+    },
+
+    {
+      "test_case_id": "TC-GW-S02-003",
+      "test_objective": "Verify periodic transmission of DoorFR = Closed.",
+      "preconditions": [
+        "Ignition ON",
+        "Door closed",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Capture multiple Body_Status frames",
+        "Decode DoorFR"
+      ],
+      "expected_result": "DoorFR = 0 in all periodic transmissions",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s02_003_doorfr_periodic(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_BODY_STATUS, CAPTURE_TIME)\n    assert len(msgs) > 1\n    for msg in msgs:\n        assert decode_door_fr(msg) == 0"
+    },
+
+    {
+      "test_case_id": "TC-GW-S02-004",
+      "test_objective": "Verify DoorFR update latency is immediate.",
+      "preconditions": [
+        "Ignition ON",
+        "Door open initially",
+        "CAN capture running"
+      ],
+      "test_steps": [
+        "Close door",
+        "Observe first received Body_Status frame",
+        "Decode DoorFR"
+      ],
+      "expected_result": "First frame reflects DoorFR = 0 without delay",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s02_004_doorfr_immediate(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_BODY_STATUS, CAPTURE_TIME)\n    assert decode_door_fr(msgs[0]) == 0"
+    },
+
+    {
+      "test_case_id": "TC-GW-S02-005",
+      "test_objective": "Verify deterministic DoorFR behavior across repeated open→close cycles.",
+      "preconditions": [
+        "Ignition ON",
+        "Multiple open/close cycles performed",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Open and close door repeatedly",
+        "Capture frames",
+        "Compare DoorFR values"
+      ],
+      "expected_result": "Each close event consistently produces DoorFR = 0",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s02_005_doorfr_deterministic(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_BODY_STATUS, CAPTURE_TIME)\n    reference = decode_door_fr(msgs[0])\n    for msg in msgs:\n        assert decode_door_fr(msg) == reference"
+    },
+
+    {
+      "test_case_id": "TC-GW-S02-006",
+      "test_objective": "Verify DoorFR status after ignition cycle while the door is closed.",
+      "preconditions": [
+        "Door closed",
+        "Ignition OFF → ON",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Cycle ignition",
+        "Monitor Body_Status",
+        "Decode DoorFR"
+      ],
+      "expected_result": "DoorFR = 0 correctly transmitted after ignition restart",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s02_006_doorfr_after_ignition(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_BODY_STATUS, CAPTURE_TIME)\n    assert decode_door_fr(msgs[-1]) == 0"
+    },
+
+    {
+      "test_case_id": "TC-GW-S02-007",
+      "test_objective": "Verify DoorFR update does not affect other door signals.",
+      "preconditions": [
+        "Other doors unchanged",
+        "Ignition ON",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Close only front-right door",
+        "Decode all door signals"
+      ],
+      "expected_result": "Only DoorFR changes to 0; others remain unchanged",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s02_007_doorfr_independent(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_BODY_STATUS, CAPTURE_TIME)\n    assert decode_door_fr(msgs[-1]) == 0"
+    },
+
+    {
+      "test_case_id": "TC-GW-S02-008",
+      "test_objective": "Verify DoorFR update while vehicle is moving.",
+      "preconditions": [
+        "Ignition ON",
+        "Vehicle moving (CAPL simulation)",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Close front-right door during movement",
+        "Capture Body_Status",
+        "Decode DoorFR"
+      ],
+      "expected_result": "DoorFR = 0 transmitted correctly while vehicle is moving",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s02_008_doorfr_vehicle_moving(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_BODY_STATUS, CAPTURE_TIME)\n    assert decode_door_fr(msgs[-1]) == 0"
+    }
+  ]
+}

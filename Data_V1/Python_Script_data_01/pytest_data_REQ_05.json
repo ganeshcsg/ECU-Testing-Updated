@@ -1,0 +1,97 @@
+{
+  "requirement": {
+    "requirement_id": "REQ-05",
+    "description": "The BCM shall transmit the interior light level (in percentage) on the CAN bus.",
+    "can_message": {
+      "arbitration_id": "0x100",
+      "signal": "Interior_Light_Level",
+      "byte_index": 1,
+      "bit_range": "8-15",
+      "unit": "%",
+      "valid_range": "0-100"
+    },
+    "python_test_setup": "import os\nimport time\nimport pytest\nimport can\n\nBCM_CAN_ID = 0x100\nMONITOR_DURATION = 1.0\nMIN_EXPECTED_FRAMES = 2\n\n@pytest.fixture(scope=\"session\")\ndef can_bus():\n    bus = can.interface.Bus(\n        interface=os.getenv(\"CAN_INTERFACE\", \"socketcan\"),\n        channel=os.getenv(\"CAN_CHANNEL\", \"can0\"),\n        bitrate=int(os.getenv(\"CAN_BITRATE\", \"500000\"))\n    )\n    yield bus\n    bus.shutdown()\n\ndef collect_bcm_messages(bus, duration_sec):\n    end_time = time.time() + duration_sec\n    frames = []\n    while time.time() < end_time:\n        msg = bus.recv(timeout=0.05)\n        if msg and msg.arbitration_id == BCM_CAN_ID: frames.append(msg)\n    return frames\n\ndef get_light_level(data):\n    return data[1] & 0xFF\n\ndef assert_frames_present(msgs):\n    assert len(msgs) >= MIN_EXPECTED_FRAMES, \"No periodic frames observed\""
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-IL-001",
+      "title": "Light OFF (0%) Verification",
+      "precondition": "Ignition ON; light set to OFF",
+      "steps": ["Start ignition", "Set light to OFF", "Monitor CAN ID 0x100", "Decode bits 8-15"],
+      "expected_result": "Interior_Light_Level = 0 transmitted periodically",
+      "python_test_script": "def test_tc_il_001_light_off(can_bus):\n    msgs = collect_bcm_messages(can_bus, MONITOR_DURATION)\n    assert_frames_present(msgs)\n    assert all(get_light_level(m.data) == 0 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-IL-002",
+      "title": "25% Brightness Verification",
+      "precondition": "Ignition ON; light set to 25%",
+      "steps": ["Set interior light to 25%", "Monitor BCM_Status_1", "Extract signal"],
+      "expected_result": "Interior_Light_Level = 25 transmitted",
+      "python_test_script": "def test_tc_il_002_light_25(can_bus):\n    msgs = collect_bcm_messages(can_bus, MONITOR_DURATION)\n    assert_frames_present(msgs)\n    assert all(get_light_level(m.data) == 25 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-IL-003",
+      "title": "50% Brightness Verification",
+      "precondition": "Ignition ON; light set to 50%",
+      "steps": ["Set interior light to 50%", "Monitor BCM_Status_1"],
+      "expected_result": "Interior_Light_Level = 50 transmitted",
+      "python_test_script": "def test_tc_il_003_light_50(can_bus):\n    msgs = collect_bcm_messages(can_bus, MONITOR_DURATION)\n    assert all(get_light_level(m.data) == 50 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-IL-004",
+      "title": "75% Brightness Verification",
+      "precondition": "Ignition ON; light set to 75%",
+      "steps": ["Set interior light to 75%", "Monitor BCM_Status_1"],
+      "expected_result": "Interior_Light_Level = 75 transmitted",
+      "python_test_script": "def test_tc_il_004_light_75(can_bus):\n    msgs = collect_bcm_messages(can_bus, MONITOR_DURATION)\n    assert all(get_light_level(m.data) == 75 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-IL-005",
+      "title": "100% Brightness Verification",
+      "precondition": "Ignition ON; light set to 100%",
+      "steps": ["Set interior light to 100%", "Monitor BCM_Status_1"],
+      "expected_result": "Interior_Light_Level = 100 transmitted",
+      "python_test_script": "def test_tc_il_005_light_100(can_bus):\n    msgs = collect_bcm_messages(can_bus, MONITOR_DURATION)\n    assert all(get_light_level(m.data) == 100 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-IL-006",
+      "title": "Robustness: Negative Value Clamp",
+      "precondition": "Ignition ON; force value to -10%",
+      "steps": ["Force light level < 0", "Monitor BCM_Status_1", "Extract signal"],
+      "expected_result": "Interior_Light_Level value remains >= 0",
+      "python_test_script": "def test_tc_il_006_no_underflow(can_bus):\n    msgs = collect_bcm_messages(can_bus, MONITOR_DURATION)\n    assert all(get_light_level(m.data) >= 0 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-IL-007",
+      "title": "Robustness: Over-limit Clamp",
+      "precondition": "Ignition ON; force value to 150%",
+      "steps": ["Force light level > 100", "Monitor BCM_Status_1"],
+      "expected_result": "Interior_Light_Level value remains <= 100",
+      "python_test_script": "def test_tc_il_007_no_overflow(can_bus):\n    msgs = collect_bcm_messages(can_bus, MONITOR_DURATION)\n    assert all(get_light_level(m.data) <= 100 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-IL-008",
+      "title": "Signal Stability Verification",
+      "precondition": "Ignition ON; light at 60%",
+      "steps": ["Set light to 60%", "Monitor for 1 second", "Compare consecutive frames"],
+      "expected_result": "All received frames contain value 60 with no fluctuations",
+      "python_test_script": "def test_tc_il_008_stability(can_bus):\n    msgs = collect_bcm_messages(can_bus, MONITOR_DURATION)\n    values = [get_light_level(m.data) for m in msgs]\n    assert len(set(values)) == 1"
+    },
+    {
+      "test_case_id": "TC-IL-009",
+      "title": "Periodic Transmission Verification",
+      "precondition": "Ignition ON; light at 40%",
+      "steps": ["Set light to 40%", "Monitor CAN for 1 second", "Count received frames"],
+      "expected_result": "Multiple frames are received within window",
+      "python_test_script": "def test_tc_il_009_periodicity(can_bus):\n    msgs = collect_bcm_messages(can_bus, 1.0)\n    assert len(msgs) >= MIN_EXPECTED_FRAMES"
+    },
+    {
+      "test_case_id": "TC-IL-010",
+      "title": "Dynamic Update Verification",
+      "precondition": "Ignition ON",
+      "steps": ["Set light to 20%", "Confirm value 20", "Change level to 80%", "Observe transition"],
+      "expected_result": "Signal changes from 20 to 80 within next transmitted frames",
+      "python_test_script": "def test_tc_il_010_dynamic_update(can_bus):\n    msgs = collect_bcm_messages(can_bus, MONITOR_DURATION)\n    values = [get_light_level(m.data) for m in msgs]\n    assert 20 in values and 80 in values\n    assert values.index(80) > values.index(20)"
+    }
+  ]
+}

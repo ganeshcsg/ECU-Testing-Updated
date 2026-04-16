@@ -1,0 +1,113 @@
+{
+  "requirement": {
+    "requirement_id": "GW-REQ-02",
+    "description": "The gateway shall maintain the defined scaling, unit, and valid range when forwarding vehicle speed information.",
+    "can_messages": [
+      {
+        "node": "GW",
+        "arbitration_id": "0xC8",
+        "signal": "GW_SpeedOut",
+        "start_bit": 0,
+        "length": 16,
+        "scaling": "0.1 km/h",
+        "valid_range": "0–250 km/h"
+      }
+    ],
+    "python_test_setup": "import can\nimport pytest\nimport time\n\nMSG_ID_GW_VEHICLE_STATUS = 0xC8\nGW_SPEED_SCALE = 0.1\nGW_SPEED_MIN = 0.0\nGW_SPEED_MAX = 250.0\n\n@pytest.fixture(scope=\"module\")\ndef can_bus():\n    bus = can.Bus(bustype=\"socketcan\", channel=\"can0\", bitrate=500000)\n    yield bus\n    bus.shutdown()\n\ndef collect_messages(bus, arb_id, duration_sec):\n    messages = []\n    end_time = time.time() + duration_sec\n    while time.time() < end_time:\n        msg = bus.recv(timeout=0.5)\n        if msg and msg.arbitration_id == arb_id:\n            messages.append(msg)\n    return messages\n\ndef decode_gw_speed_raw(msg):\n    return msg.data[0] | (msg.data[1] << 8)\n\ndef decode_gw_speed_kmh(msg):\n    return decode_gw_speed_raw(msg) * GW_SPEED_SCALE"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-SPEED-INT-001",
+      "title": "Verify GW forwards speed with correct scaling factor (0.1)",
+      "precondition": "Ignition ON; ECM transmitting ECM_VehicleData; CAN bus active; CAN monitoring tool configured for message ID 0xC8.",
+      "steps": [
+        "Start vehicle ignition.",
+        "Set ECM VehicleSpeed raw value to 100 (representing 10.0 km/h).",
+        "Monitor GW_VehicleStatus message.",
+        "Extract GW_SpeedOut bits 0–15."
+      ],
+      "expected_result": "GW_SpeedOut = 10.0 km/h with scale 0.1 preserved.",
+      "postcondition": "Ignition OFF; stop CAN logging.",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_speed_int_001_scaling(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GW_VEHICLE_STATUS, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_gw_speed_kmh(msg) == 10.0"
+    },
+    {
+      "test_case_id": "TC-GW-SPEED-INT-002",
+      "title": "Verify GW preserves unit (km/h)",
+      "precondition": "Same as TC-GW-SPEED-INT-001",
+      "steps": [
+        "Set ECM VehicleSpeed = 50 km/h.",
+        "Monitor GW output signal."
+      ],
+      "expected_result": "GW_SpeedOut represents 50 km/h (not mph or altered unit).",
+      "postcondition": "Same as TC-GW-SPEED-INT-001",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_speed_int_002_unit_kmh(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GW_VEHICLE_STATUS, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_gw_speed_kmh(msg) == 50.0"
+    },
+    {
+      "test_case_id": "TC-GW-SPEED-INT-003",
+      "title": "Verify GW forwards minimum valid value (0 km/h)",
+      "precondition": "Same as TC-GW-SPEED-INT-001",
+      "steps": [
+        "Set ECM VehicleSpeed = 0 km/h.",
+        "Observe GW_SpeedOut."
+      ],
+      "expected_result": "GW_SpeedOut = 0 km/h.",
+      "postcondition": "Same as TC-GW-SPEED-INT-001",
+      "test_type": "Boundary",
+      "python_test_script": "def test_tc_gw_speed_int_003_min_value(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GW_VEHICLE_STATUS, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_gw_speed_kmh(msg) == GW_SPEED_MIN"
+    },
+    {
+      "test_case_id": "TC-GW-SPEED-INT-004",
+      "title": "Verify GW forwards maximum valid value (250 km/h)",
+      "precondition": "Same as TC-GW-SPEED-INT-001",
+      "steps": [
+        "Set ECM VehicleSpeed = 250 km/h.",
+        "Monitor GW_VehicleStatus."
+      ],
+      "expected_result": "GW_SpeedOut = 250 km/h with no overflow or wrap-around.",
+      "postcondition": "Same as TC-GW-SPEED-INT-001",
+      "test_type": "Boundary",
+      "python_test_script": "def test_tc_gw_speed_int_004_max_value(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GW_VEHICLE_STATUS, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_gw_speed_kmh(msg) == GW_SPEED_MAX"
+    },
+    {
+      "test_case_id": "TC-GW-SPEED-INT-005",
+      "title": "Verify GW does not exceed defined upper range",
+      "precondition": "Same as TC-GW-SPEED-INT-001",
+      "steps": [
+        "Force ECM to transmit speed above 250 km/h.",
+        "Monitor GW_SpeedOut."
+      ],
+      "expected_result": "GW_SpeedOut remains within 0–250 km/h range.",
+      "postcondition": "Same as TC-GW-SPEED-INT-001",
+      "test_type": "Robustness",
+      "python_test_script": "def test_tc_gw_speed_int_005_range_protection(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GW_VEHICLE_STATUS, 2)\n    assert msgs\n    for msg in msgs:\n        speed = decode_gw_speed_kmh(msg)\n        assert GW_SPEED_MIN <= speed <= GW_SPEED_MAX"
+    },
+    {
+      "test_case_id": "TC-GW-SPEED-INT-006",
+      "title": "Verify raw-to-physical value mapping consistency",
+      "precondition": "Same as TC-GW-SPEED-INT-001",
+      "steps": [
+        "Set ECM raw VehicleSpeed = 1234.",
+        "Monitor GW_SpeedOut."
+      ],
+      "expected_result": "GW_SpeedOut = 123.4 km/h exactly.",
+      "postcondition": "Same as TC-GW-SPEED-INT-001",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_speed_int_006_raw_to_physical(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GW_VEHICLE_STATUS, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_gw_speed_kmh(msg) == 123.4"
+    },
+    {
+      "test_case_id": "TC-GW-SPEED-INT-007",
+      "title": "Verify GW does not apply offset to speed signal",
+      "precondition": "Same as TC-GW-SPEED-INT-001",
+      "steps": [
+        "Set ECM VehicleSpeed = 20 km/h.",
+        "Decode GW output."
+      ],
+      "expected_result": "GW_SpeedOut = 20.0 km/h (offset = 0).",
+      "postcondition": "Same as TC-GW-SPEED-INT-001",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_speed_int_007_no_offset(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GW_VEHICLE_STATUS, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_gw_speed_raw(msg) * GW_SPEED_SCALE == decode_gw_speed_kmh(msg)"
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "requirement": {
+    "requirement_id": "GW-REQ-12",
+    "description": "Upon a change in door warning status, the gateway shall immediately transmit the updated warning information to the instrument cluster.",
+    "can_messages": [
+      {
+        "node": "Gateway",
+        "arbitration_id": "0xD2",
+        "signal": "DoorWarning",
+        "bit": 1
+      }
+    ],
+    "python_test_setup": "import os\nimport time\nimport pytest\nimport can\n\nGW_WARNINGS_ID = 0xD2\n\n@pytest.fixture(scope=\"module\")\ndef can_bus():\n    bus = can.interface.Bus(\n        interface=os.getenv('CAN_INTERFACE', 'socketcan'),\n        channel=os.getenv('CAN_CHANNEL', 'can0'),\n        bitrate=500000\n    )\n    yield bus\n    bus.shutdown()\n\ndef get_door_warning(data_bytes: bytes) -> int:\n    return (data_bytes[0] >> 1) & 0x01\n\ndef collect_gw_messages(bus, duration_sec=1.0):\n    msgs = []\n    start = time.time()\n    while time.time() - start < duration_sec:\n        msg = bus.recv(timeout=0.1)\n        if msg and msg.arbitration_id == GW_WARNINGS_ID:\n            msgs.append(msg)\n    return msgs"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-DOOR-IMM-001",
+      "title": "Verify immediate transmission when DoorWarning transitions 0 → 1",
+      "precondition": "Ignition ON; VehicleSpeed > 0 km/h; All doors closed; Monitor CAN ID 0xD2",
+      "steps": [
+        "Ensure DoorWarning = 0",
+        "Open any door while vehicle is moving",
+        "Capture GW_Warnings for 2 seconds",
+        "Extract bit 1"
+      ],
+      "expected_result": "DoorWarning transitions from 0 to 1 and updated frame transmitted immediately",
+      "python_test_script": "def test_tc_gw_door_imm_001_set(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    states = [get_door_warning(m.data) for m in msgs]\n    assert 0 in states and 1 in states\n    assert states[-1] == 1"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-IMM-002",
+      "title": "Verify immediate transmission when DoorWarning transitions 1 → 0 due to door closure",
+      "precondition": "Ignition ON; VehicleSpeed > 0 km/h; Door open; Monitor CAN ID 0xD2",
+      "steps": [
+        "Ensure DoorWarning = 1",
+        "Close all doors",
+        "Capture GW_Warnings",
+        "Extract bit 1"
+      ],
+      "expected_result": "DoorWarning transitions from 1 to 0 and updated frame transmitted immediately",
+      "python_test_script": "def test_tc_gw_door_imm_002_clear_on_close(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    states = [get_door_warning(m.data) for m in msgs]\n    assert 1 in states and 0 in states\n    assert states[-1] == 0"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-IMM-003",
+      "title": "Verify immediate transmission when DoorWarning clears due to vehicle stop",
+      "precondition": "Ignition ON; Door open; VehicleSpeed > 0 km/h",
+      "steps": [
+        "Ensure DoorWarning = 1",
+        "Reduce VehicleSpeed to 0 km/h",
+        "Capture GW_Warnings",
+        "Extract bit 1"
+      ],
+      "expected_result": "DoorWarning transitions from 1 to 0 immediately after speed becomes 0",
+      "python_test_script": "def test_tc_gw_door_imm_003_clear_on_stop(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    states = [get_door_warning(m.data) for m in msgs]\n    assert states[-1] == 0"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-IMM-004",
+      "title": "Verify immediate transmission on rapid door open while moving",
+      "precondition": "Ignition ON; VehicleSpeed > 0 km/h; Doors closed",
+      "steps": [
+        "Rapidly open door",
+        "Monitor next GW_Warnings message",
+        "Extract bit 1"
+      ],
+      "expected_result": "DoorWarning = 1 transmitted without delay",
+      "python_test_script": "def test_tc_gw_door_imm_004_rapid_open(can_bus):\n    msgs = collect_gw_messages(can_bus, 1.5)\n    assert any(get_door_warning(m.data) == 1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-IMM-005",
+      "title": "Verify immediate transmission on rapid door close while moving",
+      "precondition": "Ignition ON; VehicleSpeed > 0 km/h; Door open",
+      "steps": [
+        "Rapidly close door",
+        "Monitor GW_Warnings message",
+        "Extract bit 1"
+      ],
+      "expected_result": "DoorWarning = 0 transmitted immediately",
+      "python_test_script": "def test_tc_gw_door_imm_005_rapid_close(can_bus):\n    msgs = collect_gw_messages(can_bus, 1.5)\n    assert any(get_door_warning(m.data) == 0 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-IMM-006",
+      "title": "Verify no redundant transmission when DoorWarning state does not change",
+      "precondition": "Ignition ON; VehicleSpeed > 0 km/h; Door open",
+      "steps": [
+        "Maintain same door state",
+        "Capture GW_Warnings for 3 seconds",
+        "Extract bit 1"
+      ],
+      "expected_result": "DoorWarning remains constant with no additional transition events",
+      "python_test_script": "def test_tc_gw_door_imm_006_no_redundant(can_bus):\n    msgs = collect_gw_messages(can_bus, 3.0)\n    states = {get_door_warning(m.data) for m in msgs}\n    assert len(states) == 1"
+    }
+  ]
+}

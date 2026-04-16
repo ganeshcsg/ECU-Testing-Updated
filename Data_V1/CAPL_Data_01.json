@@ -1,0 +1,278 @@
+{
+  "DBC_outout_after_parsing": {
+    "version": "0.1",
+    "nodes": [
+      "BCM",
+      "ECM",
+      "IC",
+      "GW"
+    ],
+    "messages": [
+      {
+        "frame_id": 256,
+        "name": "BCM_Status_1",
+        "length": 8,
+        "senders": [
+          "BCM"
+        ],
+        "signals": [
+          {
+            "name": "Hazard_Light_Status",
+            "start": 0,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": [
+              "ECM",
+              "IC",
+              "GW"
+            ]
+          },
+          {
+            "name": "Headlight_Status",
+            "start": 1,
+            "length": 2,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 3,
+            "unit": "",
+            "receivers": [
+              "ECM",
+              "IC",
+              "GW"
+            ]
+          },
+          {
+            "name": "Door_Lock_Status",
+            "start": 3,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": [
+              "ECM",
+              "IC",
+              "GW"
+            ]
+          },
+          {
+            "name": "Trunk_Status",
+            "start": 4,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": [
+              "ECM",
+              "IC",
+              "GW"
+            ]
+          },
+          {
+            "name": "Interior_Light_Level",
+            "start": 8,
+            "length": 8,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 100,
+            "unit": "%",
+            "receivers": [
+              "IC",
+              "GW"
+            ]
+          }
+        ]
+      },
+      {
+        "frame_id": 512,
+        "name": "ECM_Vehicle_Speed",
+        "length": 4,
+        "senders": [
+          "ECM"
+        ],
+        "signals": [
+          {
+            "name": "Vehicle_Speed",
+            "start": 0,
+            "length": 16,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 0.1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 300,
+            "unit": "km/h",
+            "receivers": [
+              "BCM",
+              "IC",
+              "GW"
+            ]
+          }
+        ]
+      },
+      {
+        "frame_id": 768,
+        "name": "IC_Driver_Inputs",
+        "length": 2,
+        "senders": [
+          "IC"
+        ],
+        "signals": [
+          {
+            "name": "Horn_Switch_Pressed",
+            "start": 0,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": [
+              "BCM",
+              "GW"
+            ]
+          },
+          {
+            "name": "High_Beam_Switch_Requested",
+            "start": 1,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": [
+              "BCM",
+              "GW"
+            ]
+          }
+        ]
+      },
+      {
+        "frame_id": 1024,
+        "name": "GW_Consolidated_Status",
+        "length": 4,
+        "senders": [
+          "GW"
+        ],
+        "signals": [
+          {
+            "name": "GWS_Vehicle_Speed_Avg",
+            "start": 0,
+            "length": 16,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 0.5,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 300,
+            "unit": "km/h",
+            "receivers": [
+              "GW"
+            ]
+          },
+          {
+            "name": "GWS_Any_Door_Open",
+            "start": 16,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": [
+              "GW"
+            ]
+          },
+          {
+            "name": "GWS_Horn_Active",
+            "start": 17,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": [
+              "GW"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "requirements": [
+    {
+        "requirement_id": "REQ_01",
+        "requirement_text": "The BCM shall transmit the current hazard light status on the CAN bus.",
+        "capl_script": "/* REQ_01 */\nvariables\n{\n  message BCM_Status_1 msgBCM;\n  msTimer tCycle;\n  const int CYCLE_MS = 100;\n  int gHazardStatus = 0;\n}\n\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgBCM.byte(i) = 0;\n  }\n  msgBCM.dlc = 8;\n  setTimer(tCycle, CYCLE_MS);\n}\n\non timer tCycle\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgBCM.byte(i) = 0;\n  }\n  msgBCM.dlc = 8;\n  msgBCM.Hazard_Light_Status = gHazardStatus;\n  output(msgBCM);\n  setTimer(tCycle, CYCLE_MS);\n}"
+    },
+    {
+        "requirement_id": "REQ_02",
+        "requirement_text": "When the headlight state changes, the BCM shall transmit the updated headlight status on the CAN bus.",
+        "capl_script": "/* REQ_02 */\nvariables\n{\n  message BCM_Status_1 msgBCM;\n  msTimer tCycle;\n  const int CYCLE_MS = 100;\n  int gHeadlightStatus = 0;\n}\n\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgBCM.byte(i) = 0;\n  }\n  msgBCM.dlc = 8;\n  setTimer(tCycle, CYCLE_MS);\n}\n\non timer tCycle\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgBCM.byte(i) = 0;\n  }\n  msgBCM.dlc = 8;\n  msgBCM.Headlight_Status = gHeadlightStatus;\n  output(msgBCM);\n  setTimer(tCycle, CYCLE_MS);\n}"
+    },
+     {
+        "requirement_id": "REQ_03",
+        "requirement_text": "The BCM shall transmit the current door lock status on the CAN bus.",
+        "capl_script": "/* REQ_03 */\nvariables\n{\n  message BCM_Status_1 msgBCM;\n  msTimer tCycle;\n  const int CYCLE_MS = 100;\n  int gDoorLockStatus = 0;\n}\n\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgBCM.byte(i) = 0;\n  }\n  msgBCM.dlc = 8;\n  setTimer(tCycle, CYCLE_MS);\n}\n\non timer tCycle\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgBCM.byte(i) = 0;\n  }\n  msgBCM.dlc = 8;\n  msgBCM.Door_Lock_Status = gDoorLockStatus;\n  output(msgBCM);\n  setTimer(tCycle, CYCLE_MS);\n}"
+    },
+    {
+        "requirement_id": "REQ_04",
+        "requirement_text": "The BCM shall transmit whether the trunk is open or closed on the CAN bus.",
+        "capl_script": "/* REQ_04 */\nvariables\n{\n  message BCM_Status_1 msgBCM;\n  msTimer tCycle;\n  const int CYCLE_MS = 100;\n  int gTrunkStatus = 0;\n}\n\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgBCM.byte(i) = 0;\n  }\n  msgBCM.dlc = 8;\n  setTimer(tCycle, CYCLE_MS);\n}\n\non timer tCycle\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgBCM.byte(i) = 0;\n  }\n  msgBCM.dlc = 8;\n  msgBCM.Trunk_Status = gTrunkStatus;\n  output(msgBCM);\n  setTimer(tCycle, CYCLE_MS);\n}"
+    },
+    {
+        "requirement_id": "REQ_05",
+        "requirement_text": "The BCM shall transmit the interior light level (in percentage) on the CAN bus.",
+        "capl_script": "/* REQ_05 */\nvariables\n{\n  message BCM_Status_1 msgBCM;\n  msTimer tCycle;\n  const int CYCLE_MS = 100;\n  int gInteriorLightLevel = 50;\n}\n\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgBCM.byte(i) = 0;\n  }\n  msgBCM.dlc = 8;\n  setTimer(tCycle, CYCLE_MS);\n}\n\non timer tCycle\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgBCM.byte(i) = 0;\n  }\n  msgBCM.dlc = 8;\n  msgBCM.Interior_Light_Level = gInteriorLightLevel;\n  output(msgBCM);\n  setTimer(tCycle, CYCLE_MS);\n}"
+    },
+    {
+        "requirement_id": "REQ_06",
+        "requirement_text": "The BCM shall transmit the current windshield wiper speed setting on the CAN bus.",
+        "capl_script": "/* REQ_06 */\nvariables\n{\n  message BCM_Wiper_Control msgWiper;\n  msTimer tCycle;\n  const int CYCLE_MS = 100;\n  int gWiperSpeed = 0;\n}\n\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgWiper.byte(i) = 0;\n  }\n  msgWiper.dlc = 8;\n  setTimer(tCycle, CYCLE_MS);\n}\n\non timer tCycle\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgWiper.byte(i) = 0;\n  }\n  msgWiper.dlc = 8;\n  msgWiper.Wiper_Speed = gWiperSpeed;\n  output(msgWiper);\n  setTimer(tCycle, CYCLE_MS);\n}"
+    },
+    {
+        "requirement_id": "REQ_07",
+        "requirement_text": "The ECM shall transmit the current vehicle speed on the CAN bus.",
+        "capl_script": "/* REQ_07 */\nvariables\n{\n  message ECM_Vehicle_Speed msgSpeed;\n  msTimer tCycle;\n  const int CYCLE_MS = 100;\n  int gVehicleSpeedRaw = 0;\n}\n\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgSpeed.byte(i) = 0;\n  }\n  msgSpeed.dlc = 8;\n  setTimer(tCycle, CYCLE_MS);\n}\n\non timer tCycle\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgSpeed.byte(i) = 0;\n  }\n  msgSpeed.dlc = 8;\n  msgSpeed.Vehicle_Speed = gVehicleSpeedRaw;\n  output(msgSpeed);\n  setTimer(tCycle, CYCLE_MS);\n}"
+    },
+    {
+        "requirement_id": "REQ_08",
+        "requirement_text": "When the driver presses the horn switch, the IC shall immediately transmit the horn switch status on the CAN bus.",
+        "capl_script": "/* REQ_08 */\nvariables\n{\n  message IC_Driver_Inputs msgIC;\n}\n\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgIC.byte(i) = 0;\n  }\n  msgIC.dlc = 8;\n  msgIC.Horn_Switch_Pressed = 0;\n  output(msgIC);\n}\n\non key 'h'\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgIC.byte(i) = 0;\n  }\n  msgIC.dlc = 8;\n  msgIC.Horn_Switch_Pressed = !msgIC.Horn_Switch_Pressed;\n  output(msgIC);\n}"
+    },
+    {
+        "requirement_id": "REQ_09",
+        "requirement_text": "When the driver requests high beam, the IC shall transmit the high beam switch request on the CAN bus.",
+        "capl_script": "/* REQ_09 */\nvariables\n{\n  message IC_Driver_Inputs msgIC;\n}\n\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgIC.byte(i) = 0;\n  }\n  msgIC.dlc = 8;\n  msgIC.High_Beam_Switch_Requested = 0;\n  output(msgIC);\n}\n\non key 'b'\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgIC.byte(i) = 0;\n  }\n  msgIC.dlc = 8;\n  msgIC.High_Beam_Switch_Requested = !msgIC.High_Beam_Switch_Requested;\n  output(msgIC);\n}"
+    }
+  ]
+}

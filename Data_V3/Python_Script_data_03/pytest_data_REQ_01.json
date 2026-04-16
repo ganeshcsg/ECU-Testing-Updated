@@ -1,0 +1,105 @@
+{
+  "requirement": {
+    "requirement_id": "IC-REQ-01",
+    "description": "When the driver presses or releases the horn switch, the instrument cluster shall immediately transmit the horn request state to the gateway ECU.",
+    "can_message": {
+      "node": "IC",
+      "arbitration_id": "0x280",
+      "message_name": "IC_Driver_Command",
+      "dlc": 8,
+      "signals": [
+        {
+          "name": "IC_Horn_Request",
+          "start_bit": 0,
+          "length": 1,
+          "byte_order": "little_endian",
+          "values": {
+            "0": "Released",
+            "1": "Pressed"
+          }
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-IC-HORN-001",
+      "test_objective": "Verify signal is 1 when horn is pressed.",
+      "preconditions": [
+        "Ignition ON",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Press horn switch",
+        "Monitor CAN ID 0x280",
+        "Extract Bit 0 (IC_Horn_Request)"
+      ],
+      "expected_result": "IC_Horn_Request = 1 transmitted immediately",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_ic_horn_001(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_horn(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-IC-HORN-002",
+      "test_objective": "Verify signal returns to 0 when released.",
+      "preconditions": [
+        "Horn switch pressed previously",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Release horn switch",
+        "Monitor CAN ID 0x280",
+        "Extract Bit 0"
+      ],
+      "expected_result": "IC_Horn_Request = 0 transmitted immediately",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_ic_horn_002(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_horn(msg) == 0"
+    },
+    {
+      "test_case_id": "TC-IC-HORN-003",
+      "test_objective": "Verify transition from 1 to 0 (No latching).",
+      "preconditions": [
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Press then release horn",
+        "Observe consecutive CAN frames",
+        "Check Bit 0 transitions"
+      ],
+      "expected_result": "Signal correctly transitions 1 → 0 without sticking",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_ic_horn_003(can_bus):\n    states = [decode_horn(can_bus.recv()) for _ in range(10)]\n    assert 1 in states and 0 in states"
+    },
+    {
+      "test_case_id": "TC-IC-HORN-004",
+      "test_objective": "Verify consistency during a long press.",
+      "preconditions": [
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Press and hold horn switch",
+        "Capture multiple CAN frames",
+        "Check Bit 0 for each frame"
+      ],
+      "expected_result": "Signal remains 1 across all captured frames",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_ic_horn_004(can_bus):\n    for _ in range(5):\n        assert decode_horn(can_bus.recv()) == 1"
+    },
+    {
+      "test_case_id": "TC-IC-HORN-005",
+      "test_objective": "Verify no false triggers (Negative Test).",
+      "preconditions": [
+        "Ignition ON",
+        "Horn switch not pressed",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Monitor CAN ID 0x280 without pressing horn",
+        "Extract Bit 0 (IC_Horn_Request)"
+      ],
+      "expected_result": "IC_Horn_Request remains 0",
+      "test_type": "Negative",
+      "python_test_script": "def test_tc_ic_horn_005(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_horn(msg) == 0"
+    }
+  ]
+}

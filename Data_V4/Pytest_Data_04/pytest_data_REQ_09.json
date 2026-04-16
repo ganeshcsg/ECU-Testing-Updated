@@ -1,0 +1,135 @@
+{
+  "requirement": {
+    "requirement_id": "REQ_09",
+    "description": "If multiple warning conditions are active simultaneously, the system shall transmit all active warnings together in the same update to the instrument cluster.",
+    "can_message": {
+      "node": "Gateway",
+      "arbitration_id": "0x2E4",
+      "message_name": "Gateway_Warnings",
+      "dlc": 8,
+      "signals": [
+        {
+          "name": "OverspeedWarn",
+          "start_bit": 0,
+          "length": 1,
+          "byte_order": "little_endian"
+        },
+        {
+          "name": "DoorOpenWarn",
+          "start_bit": 1,
+          "length": 1,
+          "byte_order": "little_endian"
+        },
+        {
+          "name": "HighTempWarn",
+          "start_bit": 2,
+          "length": 1,
+          "byte_order": "little_endian"
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+
+    {
+      "test_case_id": "TC-GW-S14-001",
+      "test_objective": "Verify Overspeed and Door-Open warnings are transmitted together in the same CAN frame.",
+      "preconditions": [
+        "Ignition ON",
+        "Engine temperature normal",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Increase speed above overspeed threshold",
+        "Open any door while speed > 0",
+        "Monitor Gateway_Warnings message",
+        "Extract OverspeedWarn and DoorOpenWarn bits"
+      ],
+      "expected_result": "OverspeedWarn = 1 and DoorOpenWarn = 1 present together in the same frame",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s14_001(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_DURATION)\n    for m in msgs:\n        assert decode_overspeed_warn(m) == 1\n        assert decode_door_open_warn(m) == 1"
+    },
+
+    {
+      "test_case_id": "TC-GW-S14-002",
+      "test_objective": "Verify Overspeed and High-Temperature warnings are transmitted together.",
+      "preconditions": [
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "Increase speed above threshold",
+        "Increase engine temperature above limit",
+        "Monitor Gateway_Warnings"
+      ],
+      "expected_result": "OverspeedWarn = 1 and HighTempWarn = 1 in the same update",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s14_002(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_DURATION)\n    for m in msgs:\n        assert decode_overspeed_warn(m) == 1\n        assert decode_high_temp_warn(m) == 1"
+    },
+
+    {
+      "test_case_id": "TC-GW-S14-003",
+      "test_objective": "Verify Door-Open and High-Temperature warnings are transmitted together.",
+      "preconditions": [
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "Open door",
+        "Raise engine temperature above limit",
+        "Monitor Gateway_Warnings"
+      ],
+      "expected_result": "DoorOpenWarn = 1 and HighTempWarn = 1 in the same update",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s14_003(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_DURATION)\n    for m in msgs:\n        assert decode_door_open_warn(m) == 1\n        assert decode_high_temp_warn(m) == 1"
+    },
+
+    {
+      "test_case_id": "TC-GW-S14-004",
+      "test_objective": "Verify Overspeed, Door-Open, and High-Temperature warnings are transmitted together simultaneously.",
+      "preconditions": [
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "Increase speed above threshold",
+        "Open door",
+        "Increase temperature above limit",
+        "Monitor Gateway_Warnings"
+      ],
+      "expected_result": "OverspeedWarn = 1, DoorOpenWarn = 1, HighTempWarn = 1 in the same CAN frame",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s14_004(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_DURATION)\n    for m in msgs:\n        assert decode_overspeed_warn(m) == 1\n        assert decode_door_open_warn(m) == 1\n        assert decode_high_temp_warn(m) == 1"
+    },
+
+    {
+      "test_case_id": "TC-GW-S14-005",
+      "test_objective": "Verify warnings are not split across multiple frames.",
+      "preconditions": [
+        "Multiple warning conditions active simultaneously"
+      ],
+      "test_steps": [
+        "Activate two or more warning conditions",
+        "Capture consecutive frames",
+        "Verify all active bits appear in each frame"
+      ],
+      "expected_result": "All active warnings appear within one single Gateway_Warnings message",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s14_005(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_DURATION)\n    for m in msgs:\n        bits = [decode_overspeed_warn(m), decode_door_open_warn(m), decode_high_temp_warn(m)]\n        assert sum(bits) >= 2"
+    },
+
+    {
+      "test_case_id": "TC-GW-S14-006",
+      "test_objective": "Verify no partial transmission when multiple warnings activate at the same time.",
+      "preconditions": [
+        "Simultaneous activation of multiple conditions"
+      ],
+      "test_steps": [
+        "Trigger multiple conditions at same instant",
+        "Observe first Gateway_Warnings frame"
+      ],
+      "expected_result": "No warning bit missing when multiple conditions become true simultaneously",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s14_006(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_DURATION)\n    first = msgs[0]\n    bits = [decode_overspeed_warn(first), decode_door_open_warn(first), decode_high_temp_warn(first)]\n    assert any(bits)"
+    }
+
+  ]
+}

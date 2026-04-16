@@ -1,0 +1,76 @@
+{
+  "requirement": {
+    "requirement_id": "BCM-REQ-01",
+    "description": "When the body controller detects a change in the hazard warning switch state, it shall immediately transmit the updated hazard activation status onto the vehicle network.",
+    "can_message": {
+      "node": "BCM",
+      "arbitration_id": "0x12C",
+      "message_name": "BCM_Body_State",
+      "dlc": 8,
+      "signals": [
+        {
+          "name": "Bdy_Hazard_Active",
+          "start_bit": 0,
+          "length": 1,
+          "byte_order": "little_endian",
+          "values": {
+            "0": "Hazard OFF",
+            "1": "Hazard ON"
+          }
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-HZ-001",
+      "test_objective": "Verify hazard status is 0 when hazard switch is OFF.",
+      "preconditions": [
+        "Ignition ON",
+        "Hazard switch OFF",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Start ignition",
+        "Ensure hazard switch is OFF",
+        "Monitor CAN ID 0x12C",
+        "Extract Bdy_Hazard_Active"
+      ],
+      "expected_result": "Bdy_Hazard_Active = 0",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_hz_001(can_bus):\n    msgs = collect_bcm_messages(can_bus, 2.0)\n    assert all(get_bdy_hazard_active(m.data) == 0 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-HZ-002",
+      "test_objective": "Verify hazard status is 1 when hazard switch is ON.",
+      "preconditions": [
+        "Ignition ON",
+        "Hazard switch ON"
+      ],
+      "test_steps": [
+        "Turn hazard switch ON",
+        "Monitor BCM_Body_State message",
+        "Decode Bdy_Hazard_Active"
+      ],
+      "expected_result": "Bdy_Hazard_Active = 1",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_hz_002(can_bus):\n    msgs = collect_bcm_messages(can_bus, 2.0)\n    assert all(get_bdy_hazard_active(m.data) == 1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-HZ-003",
+      "test_objective": "Verify immediate update on hazard OFF to ON transition.",
+      "preconditions": [
+        "Ignition ON",
+        "Hazard switch initially OFF"
+      ],
+      "test_steps": [
+        "Toggle hazard switch to ON",
+        "Capture next CAN frame"
+      ],
+      "expected_result": "Signal changes from 0 to 1 in next frame",
+      "test_type": "Timing",
+      "python_test_script": "def test_tc_hz_003(can_bus):\n    vals = [get_bdy_hazard_active(m.data) for m in collect_bcm_messages(can_bus, 2.0)]\n    assert 0 in vals and 1 in vals"
+    }
+  ]
+}

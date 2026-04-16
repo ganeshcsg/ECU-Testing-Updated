@@ -1,0 +1,402 @@
+{
+  "DBC_outout_after_parsing": {
+    "version": "Gateway ECU v3.0",
+    "nodes": [
+      "GatewayECU",
+      "EngineECU",
+      "BodyECU",
+      "ClusterECU",
+      "ADAS_ECU"
+    ],
+    "messages": [
+      {
+        "frame_id": 700,
+        "name": "Gateway_Status",
+        "length": 8,
+        "senders": ["GatewayECU"],
+        "signals": [
+          {
+            "name": "GatewayMode",
+            "start": 0,
+            "length": 3,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 7,
+            "unit": "",
+            "receivers": ["ClusterECU"]
+          },
+          {
+            "name": "NetworkHealth",
+            "start": 3,
+            "length": 2,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 3,
+            "unit": "",
+            "receivers": ["ClusterECU"]
+          },
+          {
+            "name": "AliveCounter",
+            "start": 5,
+            "length": 4,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 15,
+            "unit": "",
+            "receivers": ["ClusterECU"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 710,
+        "name": "Engine_Data",
+        "length": 8,
+        "senders": ["EngineECU"],
+        "signals": [
+          {
+            "name": "EngineRPM",
+            "start": 0,
+            "length": 16,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 0.25,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 16000,
+            "unit": "rpm",
+            "receivers": ["GatewayECU"]
+          },
+          {
+            "name": "EngineTemp",
+            "start": 16,
+            "length": 8,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": -40,
+            "minimum": -40,
+            "maximum": 215,
+            "unit": "degC",
+            "receivers": ["GatewayECU"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 720,
+        "name": "Vehicle_Dynamics",
+        "length": 8,
+        "senders": ["ADAS_ECU"],
+        "signals": [
+          {
+            "name": "VehicleSpeed",
+            "start": 0,
+            "length": 16,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 0.01,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 300,
+            "unit": "km/h",
+            "receivers": ["GatewayECU"]
+          },
+          {
+            "name": "YawRate",
+            "start": 16,
+            "length": 16,
+            "byte_order": "little_endian",
+            "is_signed": true,
+            "scale": 0.01,
+            "offset": 0,
+            "minimum": -327.68,
+            "maximum": 327.67,
+            "unit": "deg/s",
+            "receivers": ["GatewayECU"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 730,
+        "name": "Body_Status",
+        "length": 8,
+        "senders": ["BodyECU"],
+        "signals": [
+          {
+            "name": "DoorFL",
+            "start": 0,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["GatewayECU"]
+          },
+          {
+            "name": "DoorFR",
+            "start": 1,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["GatewayECU"]
+          },
+          {
+            "name": "DoorRL",
+            "start": 2,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["GatewayECU"]
+          },
+          {
+            "name": "DoorRR",
+            "start": 3,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["GatewayECU"]
+          },
+          {
+            "name": "LightSwitch",
+            "start": 8,
+            "length": 2,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 3,
+            "unit": "",
+            "receivers": ["GatewayECU"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 740,
+        "name": "Gateway_Warnings",
+        "length": 8,
+        "senders": ["GatewayECU"],
+        "signals": [
+          {
+            "name": "OverspeedWarn",
+            "start": 0,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["ClusterECU"]
+          },
+          {
+            "name": "DoorOpenWarn",
+            "start": 1,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["ClusterECU"]
+          },
+          {
+            "name": "HighTempWarn",
+            "start": 2,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["ClusterECU"]
+          },
+          {
+            "name": "FaultPresent",
+            "start": 3,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["ClusterECU"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 750,
+        "name": "Gateway_Command",
+        "length": 8,
+        "senders": ["ClusterECU"],
+        "signals": [
+          {
+            "name": "ResetGateway",
+            "start": 0,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["GatewayECU"]
+          },
+          {
+            "name": "RequestStatus",
+            "start": 1,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["GatewayECU"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 760,
+        "name": "Gateway_Response",
+        "length": 8,
+        "senders": ["GatewayECU"],
+        "signals": [
+          {
+            "name": "ResetAck",
+            "start": 0,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["ClusterECU"]
+          },
+          {
+            "name": "StatusValid",
+            "start": 1,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["ClusterECU"]
+          },
+          {
+            "name": "ErrorCode",
+            "start": 8,
+            "length": 8,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 255,
+            "unit": "",
+            "receivers": ["ClusterECU"]
+          }
+        ]
+      }
+    ]
+  },
+  "requirements": [
+    {
+      "requirement_id": "REQ_01",
+      "requirement_text": "When the front-left door changes from closed to open, the system shall immediately make the updated door status available to the display controller.",
+      "capl_script": "/* REQ_01 */\nvariables\n{\n  message 730 bodyStatus;\n  message 740 gwWarn;\n}\n\non message Body_Status\n{\n  if (this.DoorFL == 1)\n  {\n    // Reset payload before setting signals\n    int i;\n    for (i = 0; i < 8; i++)\n    {\n      gwWarn.byte(i) = 0;\n    }\n    gwWarn.dlc = 8;\n    gwWarn.DoorOpenWarn = 1;\n    output(gwWarn);\n  }\n}"
+    },
+    {
+      "requirement_id": "REQ_02",
+      "requirement_text": "When the front-right door changes from open to closed, the system shall immediately make the updated door status available to the display controller.",
+      "capl_script": "/* REQ_02 */\nvariables\n{\n  message 730 bodyStatus;\n  message 740 gwWarn;\n}\n\non message Body_Status\n{\n  if (this.DoorFR == 0)\n  {\n    // Reset payload before setting signals\n    int i;\n    for (i = 0; i < 8; i++)\n    {\n      gwWarn.byte(i) = 0;\n    }\n    gwWarn.dlc = 8;\n    gwWarn.DoorOpenWarn = 0;\n    output(gwWarn);\n  }\n}"
+    },
+    {
+      "requirement_id": "REQ_03",
+      "requirement_text": "When the rear-left door changes state, the system shall immediately communicate the updated status to the display controller.",
+      "capl_script": "/* REQ_03 */\nvariables\n{\n  message 730 bodyStatus;\n  message 740 gwWarn;\n}\n\non message Body_Status\n{\n  if (this.DoorRL == 1)\n  {\n    // Reset payload before setting signals\n    int i;\n    for (i = 0; i < 8; i++)\n    {\n      gwWarn.byte(i) = 0;\n    }\n    gwWarn.dlc = 8;\n    gwWarn.DoorOpenWarn = 1;\n    output(gwWarn);\n  }\n}"
+    },
+    {
+      "requirement_id": "REQ_04",
+      "requirement_text": "When the rear-right door changes state, the system shall immediately communicate the updated status to the display controller.",
+      "capl_script": "/* REQ_04 */\nvariables\n{\n  message 730 bodyStatus;\n  message 740 gwWarn;\n}\n\non message Body_Status\n{\n  if (this.DoorRR == 1)\n  {\n    // Reset payload before setting signals\n    int i;\n    for (i = 0; i < 8; i++)\n    {\n      gwWarn.byte(i) = 0;\n    }\n    gwWarn.dlc = 8;\n    gwWarn.DoorOpenWarn = 1;\n    output(gwWarn);\n  }\n}"
+    },
+    {
+      "requirement_id": "REQ_05",
+      "requirement_text": "The system shall periodically transmit its operational mode to the display controller at a fixed interval.",
+      "capl_script": "/* REQ_05 */\nvariables\n{\n  message 700 gwStatus;\n  msTimer modeTimer;\n}\n\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    gwStatus.byte(i) = 0;\n  }\n  gwStatus.dlc = 8;\n  setTimer(modeTimer, 1000);\n}\n\non timer modeTimer\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    gwStatus.byte(i) = 0;\n  }\n  gwStatus.dlc = 8;\n  gwStatus.GatewayMode = 2;\n  output(gwStatus);\n  setTimer(modeTimer, 1000);\n}"
+    },
+    {
+      "requirement_id": "REQ_06",
+      "requirement_text": "When engine temperature exceeds the safe operating limit, the system shall immediately activate the high-temperature warning",
+      "capl_script": "/* REQ_06 */\nvariables\n{\n  const float SAFE_TEMP = 110.0;\n}\n\non message Engine_Data\n{\n  if (this.EngineTemp > SAFE_TEMP)\n  {\n    Gateway_Warnings.HighTempWarn = 1;\n    output(Gateway_Warnings);\n  }\n}"
+    },
+    {
+      "requirement_id": "REQ_07",
+      "requirement_text": "When engine temperature returns within safe operating limits, the system shall immediately deactivate the high-temperature warning.",
+      "capl_script": "/* REQ_07 */\nvariables\n{\n  const float SAFE_TEMP = 110.0;\n}\n\non message Engine_Data\n{\n  if (this.EngineTemp <= SAFE_TEMP)\n  {\n    Gateway_Warnings.HighTempWarn = 0;\n    output(Gateway_Warnings);\n  }\n}"
+    },
+    {
+      "requirement_id": "REQ_08",
+      "requirement_text": "The system shall evaluate vehicle speed, door status, and engine temperature together to determine whether one or more warnings must be activated.",
+      "capl_script": "/* REQ_08 */\nvariables\n{\n  msTimer tCycle;\n  float speed;\n  int doorAny;\n  int temp;\n}\n\non start\n{\n  setTimer(tCycle, 100);\n}\n\non message Vehicle_Dynamics { speed = this.VehicleSpeed; }\non message Body_Status { doorAny = this.DoorFL || this.DoorFR || this.DoorRL || this.DoorRR; }\non message Engine_Data { temp = this.EngineTemp; }\n\non timer tCycle\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    Gateway_Warnings.byte(i) = 0;\n  }\n  Gateway_Warnings.dlc = 8;\n  Gateway_Warnings.OverspeedWarn = (speed > 120);\n  Gateway_Warnings.DoorOpenWarn  = (speed > 0 && doorAny);\n  Gateway_Warnings.HighTempWarn  = (temp > 110);\n  output(Gateway_Warnings);\n  setTimer(tCycle, 100);\n}"
+    },
+    {
+      "requirement_id": "REQ_09",
+      "requirement_text": "If multiple warning conditions are active simultaneously, the system shall transmit all active warnings together in the same update to the instrument cluster.",
+      "capl_script": "/* REQ_09 */\nvariables\n{\n  msTimer tTx;\n}\n\non start\n{\n  setTimer(tTx, 100);\n}\n\non timer tTx\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    Gateway_Warnings.byte(i) = 0;\n  }\n  Gateway_Warnings.dlc = 8;\n  Gateway_Warnings.OverspeedWarn = 1;\n  Gateway_Warnings.DoorOpenWarn  = 1;\n  Gateway_Warnings.HighTempWarn  = 1;\n  output(Gateway_Warnings);\n  setTimer(tTx, 100);\n}"
+    },
+    {
+      "requirement_id": "REQ_10",
+      "requirement_text": "If vehicle speed is greater than zero and any door transitions from closed to open, the system shall activate the door-open warning within the same communication cycle.",
+      "capl_script": "/* REQ_10 */\nvariables\n{\n  int prevFL;\n  float speed;\n}\n\non message Vehicle_Dynamics { speed = this.VehicleSpeed; }\n\non message Body_Status\n{\n  if (speed > 0 && prevFL == 0 && this.DoorFL == 1)\n  {\n    // Reset payload before setting signals\n    int i;\n    for (i = 0; i < 8; i++)\n    {\n      Gateway_Warnings.byte(i) = 0;\n    }\n    Gateway_Warnings.dlc = 8;\n    Gateway_Warnings.DoorOpenWarn = 1;\n    output(Gateway_Warnings);\n  }\n  prevFL = this.DoorFL;\n}"
+    }
+  ]
+}
+

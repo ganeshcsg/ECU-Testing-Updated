@@ -1,0 +1,231 @@
+{
+  "DBC_outout_after_parsing": {
+    "version": "1.1",
+    "nodes": [
+      "BCM",
+      "ECM",
+      "TCM",
+      "IC",
+      "GW",
+      "ABS"
+    ],
+    "messages": [
+      {
+        "frame_id": 300,
+        "name": "BCM_Body_State",
+        "length": 8,
+        "senders": [
+          "BCM"
+        ],
+        "signals": [
+          {
+            "name": "Bdy_Hazard_Active",
+            "start": 0,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": [
+              "GW",
+              "IC"
+            ]
+          },
+          {
+            "name": "Bdy_Parking_Lamp",
+            "start": 1,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": [
+              "GW",
+              "IC"
+            ]
+          },
+          {
+            "name": "Bdy_Door_Front_Left",
+            "start": 2,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": [
+              "GW"
+            ]
+          },
+          {
+            "name": "Bdy_Door_Front_Right",
+            "start": 3,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "" ,
+            "receivers": [
+              "GW"
+            ]
+          },
+          {
+            "name": "Bdy_Door_Rear_Left",
+            "start": 4,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": [
+              "GW"
+            ]
+          },
+          {
+            "name": "Bdy_Door_Rear_Right",
+            "start": 5,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": [
+              "GW"
+            ]
+          },
+          {
+            "name": "Bdy_Hood_Open",
+            "start": 6,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": [
+              "GW"
+            ]
+          },
+          {
+            "name": "Bdy_Tailgate_Open",
+            "start": 7,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": [
+              "GW"
+            ]
+          }
+        ]
+      },
+      {
+        "frame_id": 520,
+        "name": "ECM_Powertrain_Data",
+        "length": 8,
+        "senders": [
+          "ECM"
+        ],
+        "signals": [
+          {
+            "name": "ECM_Vehicle_Speed",
+            "start": 0,
+            "length": 16,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 0.01,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 260,
+            "unit": "km/h",
+            "receivers": [
+              "GW",
+              "IC",
+              "ABS"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "requirements": [
+    {
+      "requirement_id": "BCM-REQ-01",
+      "requirement_text": "When the body controller detects a change in the hazard warning switch state, it shall immediately transmit the updated hazard activation status onto the vehicle network.",
+      "capl_script": "/* REQ: BCM-REQ-01 */\nvariables\n{\n  message 300 BCBCM_Body_State bcmMsg;\n  int hazardState = 0;\n}\non key 'h'\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    bcmMsg.byte(i) = 0;\n  }\n  bcmMsg.dlc = 8;\n  hazardState = !hazardState;\n  bcmMsg.Bdy_Hazard_Active = hazardState;\n  output(bcmMsg);\n}"
+    },
+    {
+      "requirement_id": "BCM-REQ-02",
+      "requirement_text": "When the exterior parking lamp state changes between OFF and ON, the body controller shall immediately broadcast the updated exterior lamp state to the network.",
+      "capl_script": "/* REQ: BCM-REQ-02 */\nvariables\n{\n  message 300 BCBCM_Body_State bcmMsg;\n  int parkingLampState = 0;\n}\non key 'p'\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    bcmMsg.byte(i) = 0;\n  }\n  bcmMsg.dlc = 8;\n  parkingLampState = !parkingLampState;\n  bcmMsg.Bdy_Parking_Lamp = parkingLampState;\n  output(bcmMsg);\n}"
+    },
+    {
+      "requirement_id": "BCM-REQ-03",
+      "requirement_text": "When any door (front or rear) transitions between open and closed states, the body controller shall immediately transmit the corresponding door status to the gateway ECU.",
+      "capl_script": "/* REQ: BCM-REQ-03 */\nvariables\n{\n  message 300 bcmMsg;\n  int fl = 0; int fr = 0; int rl = 0; int rr = 0;\n}\nvoid sendDoorStatus()\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    bcmMsg.byte(i) = 0;\n  }\n  bcmMsg.dlc = 8;\n  bcmMsg.Bdy_Door_Front_Left = fl;\n  bcmMsg.Bdy_Door_Front_Right = fr;\n  bcmMsg.Bdy_Door_Rear_Left = rl;\n  bcmMsg.Bdy_Door_Rear_Right = rr;\n  output(bcmMsg);\n}\non key '1' { fl = !fl; sendDoorStatus(); }\non key '2' { fr = !fr; sendDoorStatus(); }\non key '3' { rl = !rl; sendDoorStatus(); }\non key '4' { rr = !rr; sendDoorStatus(); }"
+    },
+    {
+      "requirement_id": "BCM-REQ-04",
+      "requirement_text": "When the hood or rear tailgate state changes, the body controller shall immediately publish the updated compartment open status to the gateway ECU.",
+      "capl_script": "/* REQ: BCM-REQ-04 */\nvariables\n{\n  message 300 BCBCM_Body_State bcmBodyMsg;\n  int hoodState = 0;\n  int tailgateState = 0;\n}\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    bcmBodyMsg.byte(i) = 0;\n  }\n  bcmBodyMsg.dlc = 8;\n  bcmBodyMsg.Bdy_Hood_Open = hoodState;\n  bcmBodyMsg.Bdy_Tailgate_Open = tailgateState;\n  output(bcmBodyMsg);\n}"
+    },
+    {
+      "requirement_id": "ECM-REQ-01",
+      "requirement_text": "The engine controller shall periodically transmit the current vehicle speed value on the network based on wheel speed and powertrain calculations.",
+      "capl_script": "/* REQ: ECM-REQ-01 */\nvariables\n{\n  msTimer speedTimer;\n  float flSpeed = 0.0;\n  float frSpeed = 0.0;\n  float rlSpeed = 0.0;\n  float rrSpeed = 0.0;\n  float vehicleSpeed = 0.0;\n  message ECM_Powertrain_Data msgECM;\n}\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgECM.byte(i) = 0;\n  }\n  msgECM.dlc = 8;\n  setTimer(speedTimer, 100);\n}\non message ABS_Wheel_Info\n{\n  flSpeed = this.ABS_Wheel_FL_Speed;\n  frSpeed = this.ABS_Wheel_FR_Speed;\n  rlSpeed = this.ABS_Wheel_RL_Speed;\n  rrSpeed = this.ABS_Wheel_RR_Speed;\n}\non timer speedTimer\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgECM.byte(i) = 0;\n  }\n  msgECM.dlc = 8;\n  vehicleSpeed = (flSpeed + frSpeed + rlSpeed + rrSpeed) / 4.0;\n  if (vehicleSpeed < 0)   vehicleSpeed = 0;\n  if (vehicleSpeed > 260) vehicleSpeed = 260;\n  msgECM.ECM_Vehicle_Speed = vehicleSpeed;\n  output(msgECM);\n  setTimer(speedTimer, 100);\n}"
+    },
+    {
+      "requirement_id": "ECM-REQ-02",
+      "requirement_text": "The engine controller shall periodically transmit the current engine rotational speed value to the gateway and instrument cluster ECUs.",
+      "capl_script": "/* REQ: ECM-REQ-02 */\nvariables\n{\n  msTimer engineSpeedTimer;\n  message 520 ECM_Powertrain_Data;\n  int engineSpeed = 800;\n  int increase = 1;\n}\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    ECM_Powertrain_Data.byte(i) = 0;\n  }\n  ECM_Powertrain_Data.dlc = 8;\n  setTimer(engineSpeedTimer, 100);\n}\non timer engineSpeedTimer\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    ECM_Powertrain_Data.byte(i) = 0;\n  }\n  ECM_Powertrain_Data.dlc = 8;\n  if (engineSpeed >= 4000) increase = 0;\n  else if (engineSpeed <= 800) increase = 1;\n  if (increase) engineSpeed += 100;\n  else engineSpeed -= 100;\n  ECM_Powertrain_Data.ECM_Engine_Speed = engineSpeed;\n  output(ECM_Powertrain_Data);\n  setTimer(engineSpeedTimer, 100);\n}"
+    },
+    {
+      "requirement_id": "ECM-REQ-03",
+      "requirement_text": "The engine controller shall periodically provide the current accelerator pedal or throttle position value to the gateway ECU.",
+      "capl_script": "/* REQ: ECM-REQ-03 */\nvariables\n{\n  msTimer throttleTimer;\n  int throttleRaw = 0;\n  int direction = 1;\n}\non start\n{\n  setTimer(throttleTimer, 100);\n}\non timer throttleTimer\n{\n  message ECM_Powertrain_Data msg;\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msg.byte(i) = 0;\n  }\n  msg.dlc = 8;\n  throttleRaw += direction * 5;\n  if (throttleRaw >= 250) { throttleRaw = 250; direction = -1; }\n  else if (throttleRaw <= 0) { throttleRaw = 0; direction = 1; }\n  msg.ECM_Throttle_Position = throttleRaw;\n  output(msg);\n  setTimer(throttleTimer, 100);\n}"
+    },
+    {
+      "requirement_id": "ECM-REQ-04",
+      "requirement_text": "The engine controller shall periodically transmit the current engine coolant temperature value to support thermal monitoring by other ECUs.",
+      "capl_script": "/* REQ: ECM-REQ-04 */\nvariables\n{\n  msTimer tempTimer;\n  message ECM_Powertrain_Data msgECM;\n  int engineTemp = 20;\n  int direction = 1;\n}\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgECM.byte(i) = 0;\n  }\n  msgECM.dlc = 8;\n  setTimer(tempTimer, 1000);\n}\non timer tempTimer\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgECM.byte(i) = 0;\n  }\n  msgECM.dlc = 8;\n  engineTemp += direction;\n  if (engineTemp >= 110) direction = -1;\n  if (engineTemp <= 20) direction = 1;\n  msgECM.ECM_Engine_Temp = engineTemp + 40;\n  output(msgECM);\n  setTimer(tempTimer, 1000);\n}"
+    },
+    {
+      "requirement_id": "TCM-REQ-01",
+      "requirement_text": "The transmission controller shall periodically transmit the currently engaged gear position to the gateway and instrument cluster ECUs.",
+      "capl_script": "/* REQ: TCM-REQ-01 */\nvariables\n{\n  msTimer gearTxTimer;\n  message 560 TCM_Gear_Status msgGear;\n  int currentGear = 0;\n}\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgGear.byte(i) = 0;\n  }\n  msgGear.dlc = 8;\n  setTimer(gearTxTimer, 100);\n}\non timer gearTxTimer\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgGear.byte(i) = 0;\n  }\n  msgGear.dlc = 8;\n  msgGear.TCM_Current_Gear = currentGear;\n  msgGear.TCM_Shift_In_Progress = 0;\n  msgGear.TCM_Clutch_Engaged = 1;\n  output(msgGear);\n  setTimer(gearTxTimer, 100);\n}\non key '0' { currentGear = 0; }\non key '1' { currentGear = 1; }\non key '2' { currentGear = 2; }\non key '3' { currentGear = 3; }\non key '4' { currentGear = 4; }\non key '5' { currentGear = 5; }\non key '6' { currentGear = 6; }"
+    },
+    {
+      "requirement_id": "TCM-REQ-02",
+      "requirement_text": "When a gear shift operation starts or completes, the transmission controller shall immediately indicate the shift-in-progress status to the gateway ECU.",
+      "capl_script": "/* REQ: TCM-REQ-02 */\nvariables\n{\n  message 560 TCM_Gear_Status msgGearStatus;\n}\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgGearStatus.byte(i) = 0;\n  }\n  msgGearStatus.dlc = 8;\n  msgGearStatus.TCM_Current_Gear = 1;\n  msgGearStatus.TCM_Shift_In_Progress = 0;\n  msgGearStatus.TCM_Clutch_Engaged = 1;\n  output(msgGearStatus);\n}\non key 's'\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgGearStatus.byte(i) = 0;\n  }\n  msgGearStatus.dlc = 8;\n  msgGearStatus.TCM_Shift_In_Progress = 1;\n  output(msgGearStatus);\n}\non key 'c'\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgGearStatus.byte(i) = 0;\n  }\n  msgGearStatus.dlc = 8;\n  msgGearStatus.TCM_Shift_In_Progress = 0;\n  output(msgGearStatus);\n}"
+    },
+    {
+      "requirement_id": "TCM-REQ-03",
+      "requirement_text": "The transmission controller shall periodically indicate the clutch engagement state to the gateway ECU.",
+      "capl_script": "/* REQ: TCM-REQ-03 */\nvariables\n{\n  message 560 TCM_Gear_Status msgTCM;\n  msTimer periodicTimer;\n  msTimer toggleTimer;\n  int clutchState = 0;\n}\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgTCM.byte(i) = 0;\n  }\n  msgTCM.dlc = 8;\n  setTimer(periodicTimer, 100);\n  setTimer(toggleTimer, 3000);\n}\non timer periodicTimer\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgTCM.byte(i) = 0;\n  }\n  msgTCM.dlc = 8;\n  msgTCM.TCM_Clutch_Engaged = clutchState;\n  msgTCM.TCM_Current_Gear = 1;\n  msgTCM.TCM_Shift_In_Progress = 0;\n  output(msgTCM);\n  setTimer(periodicTimer, 100);\n}\non timer toggleTimer\n{\n  clutchState = !clutchState;\n  setTimer(toggleTimer, 3000);\n}"
+    }
+  ]
+}

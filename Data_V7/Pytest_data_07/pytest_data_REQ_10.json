@@ -1,0 +1,135 @@
+{
+  "requirement": {
+    "requirement_id": "M-05",
+    "description": "The gateway shall transmit a wake-up indication to all connected networks upon ignition ON.",
+    "can_messages": [
+      {
+        "node": "Gateway ECU",
+        "arbitration_id": "0x100",
+        "message_name": "GW_OperationalPresence",
+        "signals": [
+          {
+            "name": "GW_AliveCounter",
+            "byte": 0
+          },
+          {
+            "name": "GW_Status",
+            "byte": 1
+          }
+        ],
+        "dlc": 8
+      }
+    ],
+    "python_test_setup": "import time\nimport can\nimport pytest\n\nGW_OPERATIONAL_PRESENCE_ID = 0x100\nGW_OPERATIONAL_PRESENCE_DLC = 8\n\n# ---------------------------\n# CAN Bus Fixture\n# ---------------------------\n@pytest.fixture(scope=\"module\")\ndef can_bus():\n    bus = can.Bus(\n        interface=\"vector\",      # vector / socketcan / pcan configurable\n        channel=0,\n        bitrate=500000\n    )\n    yield bus\n    bus.shutdown()\n\n# ---------------------------\n# Utility Functions\n# ---------------------------\ndef collect_messages(bus, msg_id, duration_sec):\n    messages = []\n    start_time = time.time()\n    while time.time() - start_time < duration_sec:\n        msg = bus.recv(timeout=0.5)\n        if msg and msg.arbitration_id == msg_id:\n            messages.append(msg)\n    return messages\n\n\ndef decode_alive_counter(msg):\n    return msg.data[0]\n\n\ndef decode_gateway_status(msg):\n    return msg.data[1]"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-WAKE-001",
+      "title": "Verify GW_OperationalPresence transmission on ignition ON",
+      "precondition": "Vehicle ignition OFF; Gateway ECU powered OFF; CAN monitoring tool connected and configured to capture message ID 0x100",
+      "steps": [
+        "Start CAN monitoring",
+        "Switch vehicle ignition to ON",
+        "Allow Gateway ECU to boot",
+        "Monitor CAN bus for GW_OperationalPresence message"
+      ],
+      "expected_result": "GW_OperationalPresence message is transmitted immediately after ignition ON, indicating network wake-up",
+      "postcondition": "Switch ignition OFF; disconnect CAN monitoring tool",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_wake_001_message_on_ignition_on(can_bus):\n    msgs = collect_messages(can_bus, GW_OPERATIONAL_PRESENCE_ID, 3)\n    assert msgs"
+    },
+    {
+      "test_case_id": "TC-GW-WAKE-002",
+      "title": "Verify GW_Status indicates gateway active",
+      "precondition": "Ignition ON; Gateway ECU active",
+      "steps": [
+        "Monitor GW_OperationalPresence message",
+        "Extract GW_Status signal from byte 1"
+      ],
+      "expected_result": "GW_Status = 1 indicating gateway and networks are awake",
+      "postcondition": "Stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_wake_002_gateway_status_active(can_bus):\n    msgs = collect_messages(can_bus, GW_OPERATIONAL_PRESENCE_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_gateway_status(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-WAKE-003",
+      "title": "Verify GW_AliveCounter increments after wake-up",
+      "precondition": "Ignition OFF; Gateway ECU inactive",
+      "steps": [
+        "Switch ignition to ON",
+        "Monitor consecutive GW_OperationalPresence messages",
+        "Extract GW_AliveCounter signal"
+      ],
+      "expected_result": "GW_AliveCounter increments sequentially after wake-up",
+      "postcondition": "Stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_wake_003_alive_counter_increment(can_bus):\n    msgs = collect_messages(can_bus, GW_OPERATIONAL_PRESENCE_ID, 3)\n    assert len(msgs) >= 2\n    for i in range(1, len(msgs)):\n        assert (decode_alive_counter(msgs[i]) - decode_alive_counter(msgs[i - 1])) % 256 == 1"
+    },
+    {
+      "test_case_id": "TC-GW-WAKE-004",
+      "title": "Verify no wake-up indication when ignition OFF",
+      "precondition": "Ignition OFF; Gateway ECU inactive",
+      "steps": [
+        "Monitor CAN bus with ignition OFF",
+        "Observe GW_OperationalPresence messages"
+      ],
+      "expected_result": "No GW_OperationalPresence messages transmitted while ignition is OFF",
+      "postcondition": "Stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_wake_004_no_message_when_ignition_off(can_bus):\n    msgs = collect_messages(can_bus, GW_OPERATIONAL_PRESENCE_ID, 2)\n    assert msgs == []"
+    },
+    {
+      "test_case_id": "TC-GW-WAKE-005",
+      "title": "Verify immediate wake-up transmission on ignition ON",
+      "precondition": "Ignition OFF; CAN monitoring enabled",
+      "steps": [
+        "Switch ignition to ON",
+        "Measure time to first GW_OperationalPresence message"
+      ],
+      "expected_result": "GW_OperationalPresence transmitted in the first available CAN cycle after ignition ON",
+      "postcondition": "Stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_wake_005_immediate_transmission(can_bus):\n    msgs = collect_messages(can_bus, GW_OPERATIONAL_PRESENCE_ID, 1)\n    assert msgs"
+    },
+    {
+      "test_case_id": "TC-GW-WAKE-006",
+      "title": "Verify GW_OperationalPresence message DLC",
+      "precondition": "Ignition ON; Gateway ECU active",
+      "steps": [
+        "Capture GW_OperationalPresence frame",
+        "Verify DLC"
+      ],
+      "expected_result": "DLC = 8 bytes",
+      "postcondition": "Stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_wake_006_dlc_check(can_bus):\n    msgs = collect_messages(can_bus, GW_OPERATIONAL_PRESENCE_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert msg.dlc == GW_OPERATIONAL_PRESENCE_DLC"
+    },
+    {
+      "test_case_id": "TC-GW-WAKE-007",
+      "title": "Verify retransmission after ignition cycle",
+      "precondition": "Gateway ECU powered OFF",
+      "steps": [
+        "Switch ignition ON",
+        "Monitor CAN bus during startup"
+      ],
+      "expected_result": "GW_OperationalPresence message is transmitted again after ignition cycle",
+      "postcondition": "Stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_wake_007_retransmission_after_ignition_cycle(can_bus):\n    time.sleep(3)\n    msgs = collect_messages(can_bus, GW_OPERATIONAL_PRESENCE_ID, 3)\n    assert msgs"
+    },
+    {
+      "test_case_id": "TC-GW-WAKE-008",
+      "title": "Verify wake-up indication stops when ignition OFF",
+      "precondition": "Gateway ECU active; ignition ON",
+      "steps": [
+        "Monitor GW_OperationalPresence messages",
+        "Switch ignition OFF",
+        "Observe CAN bus"
+      ],
+      "expected_result": "GW_OperationalPresence message transmission stops after ignition OFF",
+      "postcondition": "Ignition OFF",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_wake_008_stop_on_ignition_off(can_bus):\n    msgs_before = collect_messages(can_bus, GW_OPERATIONAL_PRESENCE_ID, 2)\n    assert msgs_before\n    time.sleep(3)\n    msgs_after = collect_messages(can_bus, GW_OPERATIONAL_PRESENCE_ID, 2)\n    assert not msgs_after"
+    }
+  ]
+}

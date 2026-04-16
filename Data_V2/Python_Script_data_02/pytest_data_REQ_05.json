@@ -1,0 +1,57 @@
+{
+  "requirement": {
+    "requirement_id": "ECM-REQ-01",
+    "description": "The engine controller shall periodically transmit the current vehicle speed value on the network based on wheel speed and powertrain calculations.",
+    "can_message": {
+      "node": "ECM",
+      "arbitration_id": "0x208",
+      "message_name": "ECM_Powertrain_Data",
+      "dlc": 8,
+      "signals": [
+        {
+          "name": "ECM_Vehicle_Speed",
+          "start_bit": 0,
+          "length": 16,
+          "byte_order": "little_endian",
+          "scale": 0.01,
+          "unit": "km/h",
+          "range": "0–260"
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-ECM-VS-001",
+      "test_objective": "Verify zero speed at standstill.",
+      "preconditions": [
+        "Ignition ON",
+        "Vehicle stationary",
+        "All wheel speeds = 0"
+      ],
+      "test_steps": [
+        "Monitor CAN ID 0x208",
+        "Decode ECM_Vehicle_Speed"
+      ],
+      "expected_result": "Vehicle speed = 0 km/h",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_ecm_vs_001(can_bus):\n    msgs = collect_ecm(can_bus)\n    assert all(extract_speed(m) == 0.0 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-ECM-VS-007",
+      "test_objective": "Verify saturation at maximum speed.",
+      "preconditions": [
+        "Ignition ON",
+        "Wheel speeds set above maximum"
+      ],
+      "test_steps": [
+        "Apply 300 km/h wheel speed",
+        "Decode ECM_Vehicle_Speed"
+      ],
+      "expected_result": "Speed does not exceed 260 km/h",
+      "test_type": "Boundary",
+      "python_test_script": "def test_tc_ecm_vs_007(can_bus):\n    msgs = collect_ecm(can_bus)\n    assert all(extract_speed(m) <= VEHICLE_SPEED_MAX for m in msgs)"
+    }
+  ]
+}

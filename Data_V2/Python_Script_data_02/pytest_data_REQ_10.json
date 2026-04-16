@@ -1,0 +1,123 @@
+{
+  "requirement": {
+    "requirement_id": "TCM-REQ-02",
+    "description": "When a gear shift operation starts or completes, the transmission controller shall immediately indicate the shift-in-progress status to the gateway ECU.",
+    "can_message": {
+      "node": "TCM",
+      "arbitration_id": "0x230",
+      "message_name": "TCM_Gear_Status",
+      "dlc": 8,
+      "signals": [
+        {
+          "name": "TCM_Shift_In_Progress",
+          "start_bit": 4,
+          "length": 1,
+          "byte_order": "little_endian",
+          "values": {
+            "0": "Idle",
+            "1": "Shifting"
+          }
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-TCM-SHIFT-001",
+      "test_objective": "Verify flag assertions at shift start.",
+      "preconditions": [
+        "Ignition ON",
+        "Transmission ready for shift",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Trigger shift start",
+        "Monitor CAN ID 0x230",
+        "Extract Bit 4 (TCM_Shift_In_Progress)"
+      ],
+      "expected_result": "TCM_Shift_In_Progress = 1 (Shifting)",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_tcm_shift_001(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_shift_flag(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-TCM-SHIFT-002",
+      "test_objective": "Verify flag de-assertion at shift completion.",
+      "preconditions": [
+        "Ignition ON",
+        "Shift operation completed"
+      ],
+      "test_steps": [
+        "Allow gear shift to complete",
+        "Monitor CAN ID 0x230",
+        "Extract Bit 4"
+      ],
+      "expected_result": "TCM_Shift_In_Progress = 0 (Idle)",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_tcm_shift_002(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_shift_flag(msg) == 0"
+    },
+    {
+      "test_case_id": "TC-TCM-SHIFT-003",
+      "test_objective": "Verify signal toggles during sequential shifts.",
+      "preconditions": [
+        "Ignition ON",
+        "Transmission capable of sequential shifts"
+      ],
+      "test_steps": [
+        "Trigger multiple sequential shifts (e.g., 1->2, 2->3)",
+        "Monitor CAN ID 0x230",
+        "Observe Bit 4 transitions"
+      ],
+      "expected_result": "TCM_Shift_In_Progress toggles 1 -> 0 for each shift cycle",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_tcm_shift_003(can_bus):\n    flags = [decode_shift_flag(can_bus.recv()) for _ in range(20)]\n    assert 1 in flags and 0 in flags"
+    },
+    {
+      "test_case_id": "TC-TCM-SHIFT-004",
+      "test_objective": "Verify signal remains 0 in steady state (Negative Test).",
+      "preconditions": [
+        "Ignition ON",
+        "Transmission in constant gear"
+      ],
+      "test_steps": [
+        "Maintain constant gear",
+        "Monitor CAN ID 0x230",
+        "Verify Bit 4 remains 0"
+      ],
+      "expected_result": "TCM_Shift_In_Progress remains 0 (Idle)",
+      "test_type": "Negative",
+      "python_test_script": "def test_tc_tcm_shift_004(can_bus):\n    for _ in range(10):\n        assert decode_shift_flag(can_bus.recv()) == 0"
+    },
+    {
+      "test_case_id": "TC-TCM-SHIFT-005",
+      "test_objective": "Verify continuity (Robustness) during a shift.",
+      "preconditions": [
+        "Ignition ON",
+        "Transmission capable of shift detection"
+      ],
+      "test_steps": [
+        "Trigger gear shift",
+        "Monitor all frames during shift duration",
+        "Check Bit 4 status"
+      ],
+      "expected_result": "No dropouts; Bit 4 remains 1 throughout shift",
+      "test_type": "Robustness",
+      "python_test_script": "def test_tc_tcm_shift_005(can_bus):\n    msgs = [decode_shift_flag(can_bus.recv()) for _ in range(5)]\n    assert all(f == 1 for f in msgs)"
+    },
+    {
+      "test_case_id": "TC-TCM-SHIFT-006",
+      "test_objective": "Verify zero latency de-assertion at shift completion (Timing).",
+      "preconditions": [
+        "Ignition ON",
+        "Shift operation completed"
+      ],
+      "test_steps": [
+        "Identify first CAN frame after shift completion",
+        "Extract Bit 4"
+      ],
+      "expected_result": "TCM_Shift_In_Progress = 0 immediately after shift completes",
+      "test_type": "Timing",
+      "python_test_script": "def test_tc_tcm_shift_006(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_shift_flag(msg) == 0"
+    }
+  ]
+}

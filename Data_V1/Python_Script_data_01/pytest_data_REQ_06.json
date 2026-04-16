@@ -1,0 +1,101 @@
+{
+  "requirement": {
+    "requirement_id": "REQ-06",
+    "description": "The BCM shall transmit the current windshield wiper speed setting on the CAN bus.",
+    "can_message": {
+      "arbitration_id": "0x100",
+      "signal": "Wiper_Speed_Setting",
+      "byte_range": "2",
+      "bit_range": "16-17",
+      "valid_values": {
+        "0": "OFF",
+        "1": "LOW",
+        "2": "MEDIUM",
+        "3": "HIGH"
+      }
+    },
+    "python_test_setup": "import os\nimport time\nimport pytest\nimport can\n\nBCM_STATUS_ID = 0x100\nWIPER_BIT_START = 16\nMIN_PERIODIC_FRAMES_PER_SEC = 8\n\n@pytest.fixture(scope=\"session\")\ndef can_bus():\n    bus = can.interface.Bus(\n        interface=os.getenv(\"CAN_INTERFACE\", \"socketcan\"),\n        channel=os.getenv(\"CAN_CHANNEL\", \"can0\"),\n        bitrate=int(os.getenv(\"CAN_BITRATE\", \"500000\"))\n    )\n    yield bus\n    bus.shutdown()\n\ndef get_wiper_speed(data: bytes) -> int:\n    raw = int.from_bytes(data, byteorder=\"little\", signed=False)\n    return (raw >> WIPER_BIT_START) & 0b11\n\ndef collect_bcm_messages(can_bus, duration_sec=1.0):\n    msgs = []\n    end_time = time.time() + duration_sec\n    while time.time() < end_time:\n        msg = can_bus.recv(timeout=0.05)\n        if msg and msg.arbitration_id == BCM_STATUS_ID:\n            msgs.append(msg)\n    return msgs\n\ndef wait_for_wiper_value(can_bus, expected_value: int, timeout_sec=2.0):\n    end_time = time.time() + timeout_sec\n    while time.time() < end_time:\n        msg = can_bus.recv(timeout=0.1)\n        if msg and msg.arbitration_id == BCM_STATUS_ID:\n            if get_wiper_speed(msg.data) == expected_value: return msg\n    pytest.fail(f\"Timeout waiting for Wiper_Speed={expected_value}\")"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-WIP-001",
+      "title": "Wiper OFF Verification",
+      "precondition": "Ignition ON; Wiper stalk OFF",
+      "steps": ["Turn ignition ON", "Set wiper stalk to OFF", "Monitor BCM_Status_1", "Extract bits 16-17"],
+      "expected_result": "Wiper_Speed_Setting = 0 transmitted periodically",
+      "python_test_script": "def test_tc_wip_001_off(can_bus):\n    msgs = collect_bcm_messages(can_bus, 1)\n    assert len(msgs) >= MIN_PERIODIC_FRAMES_PER_SEC\n    assert all(get_wiper_speed(m.data) == 0 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-WIP-002",
+      "title": "Wiper LOW Verification",
+      "precondition": "Ignition ON; Wiper stalk LOW",
+      "steps": ["Set wiper stalk to LOW", "Monitor CAN ID 0x100", "Decode signal"],
+      "expected_result": "Wiper_Speed_Setting = 1 transmitted periodically",
+      "python_test_script": "def test_tc_wip_002_low(can_bus):\n    wait_for_wiper_value(can_bus, 1)\n    msgs = collect_bcm_messages(can_bus, 1)\n    assert all(get_wiper_speed(m.data) == 1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-WIP-003",
+      "title": "Wiper MEDIUM Verification",
+      "precondition": "Ignition ON; Wiper stalk MEDIUM",
+      "steps": ["Set wiper stalk to MEDIUM", "Monitor BCM_Status_1"],
+      "expected_result": "Wiper_Speed_Setting = 2 transmitted periodically",
+      "python_test_script": "def test_tc_wip_003_medium(can_bus):\n    wait_for_wiper_value(can_bus, 2)\n    msgs = collect_bcm_messages(can_bus, 1)\n    assert all(get_wiper_speed(m.data) == 2 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-WIP-004",
+      "title": "Wiper HIGH Verification",
+      "precondition": "Ignition ON; Wiper stalk HIGH",
+      "steps": ["Set wiper stalk to HIGH", "Monitor BCM_Status_1"],
+      "expected_result": "Wiper_Speed_Setting = 3 transmitted periodically",
+      "python_test_script": "def test_tc_wip_004_high(can_bus):\n    wait_for_wiper_value(can_bus, 3)\n    msgs = collect_bcm_messages(can_bus, 1)\n    assert all(get_wiper_speed(m.data) == 3 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-WIP-005",
+      "title": "Transition LOW to HIGH",
+      "precondition": "Ignition ON; initial LOW position",
+      "steps": ["Confirm status = 1", "Change stalk to HIGH", "Monitor next frame"],
+      "expected_result": "Wiper_Speed_Setting changes from 1 to 3",
+      "python_test_script": "def test_tc_wip_005_transition_low_high(can_bus):\n    wait_for_wiper_value(can_bus, 1)\n    wait_for_wiper_value(can_bus, 3)"
+    },
+    {
+      "test_case_id": "TC-WIP-006",
+      "title": "Transition HIGH to OFF",
+      "precondition": "Ignition ON; initial HIGH position",
+      "steps": ["Confirm status = 3", "Change stalk to OFF", "Monitor next frame"],
+      "expected_result": "Wiper_Speed_Setting changes from 3 to 0",
+      "python_test_script": "def test_tc_wip_006_transition_high_off(can_bus):\n    wait_for_wiper_value(can_bus, 3)\n    wait_for_wiper_value(can_bus, 0)"
+    },
+    {
+      "test_case_id": "TC-WIP-007",
+      "title": "Signal Stability Check",
+      "precondition": "Ignition ON; Wiper set to LOW",
+      "steps": ["Set stalk to LOW", "Capture 10 consecutive messages", "Extract speed"],
+      "expected_result": "All captured frames contain value 1 with no deviation",
+      "python_test_script": "def test_tc_wip_007_stability(can_bus):\n    wait_for_wiper_value(can_bus, 1)\n    msgs = collect_bcm_messages(can_bus, 1.5)\n    values = [get_wiper_speed(m.data) for m in msgs]\n    assert all(v == 1 for v in values)"
+    },
+    {
+      "test_case_id": "TC-WIP-008",
+      "title": "Negative: Invalid Value Check",
+      "precondition": "Ignition ON",
+      "steps": ["Operate stalk across all positions", "Capture 50 frames", "Decode signal"],
+      "expected_result": "Wiper_Speed_Setting is always within {0,1,2,3}",
+      "python_test_script": "def test_tc_wip_008_no_invalid_values(can_bus):\n    msgs = collect_bcm_messages(can_bus, 2.0)\n    for m in msgs:\n        assert get_wiper_speed(m.data) in (0, 1, 2, 3)"
+    },
+    {
+      "test_case_id": "TC-WIP-009",
+      "title": "Performance: Periodic Rate",
+      "precondition": "Ignition ON; Wiper in LOW",
+      "steps": ["Set stalk to LOW", "Capture frames for 1 second", "Count messages"],
+      "expected_result": "At least 8 frames received within 1 second",
+      "python_test_script": "def test_tc_wip_009_periodic_rate(can_bus):\n    msgs = collect_bcm_messages(can_bus, 1.0)\n    assert len(msgs) >= MIN_PERIODIC_FRAMES_PER_SEC"
+    },
+    {
+      "test_case_id": "TC-WIP-010",
+      "title": "Robustness: Error Frame Check",
+      "precondition": "Ignition ON; Wiper in LOW",
+      "steps": ["Set stalk to LOW", "Capture traffic for 2 seconds", "Observe BCM_Status_1"],
+      "expected_result": "No error frames observed for message 0x100",
+      "python_test_script": "def test_tc_wip_010_no_errors(can_bus):\n    msgs = collect_bcm_messages(can_bus, 2.0)\n    for m in msgs:\n        assert not m.is_error_frame"
+    }
+  ]
+}

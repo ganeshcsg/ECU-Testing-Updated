@@ -1,0 +1,145 @@
+{
+  "requirement": {
+    "requirement_id": "REQ_10",
+    "description": "If vehicle speed is greater than zero and any door transitions from closed to open, the system shall activate the door-open warning within the same communication cycle.",
+    "can_message": {
+      "node": "Gateway",
+      "arbitration_id": "0x2E4",
+      "message_name": "Gateway_Warnings",
+      "dlc": 8,
+      "signals": [
+        {
+          "name": "DoorOpenWarn",
+          "start_bit": 1,
+          "length": 1,
+          "byte_order": "little_endian",
+          "values": {
+            "0": "Inactive",
+            "1": "Active"
+          }
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+
+    {
+      "test_case_id": "TC-GW-S15-001",
+      "test_objective": "Verify DoorOpenWarn activates in the same cycle when front-left door transitions from closed to open while speed > 0.",
+      "preconditions": [
+        "Ignition ON",
+        "All doors closed",
+        "Vehicle speed > 0 km/h",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Maintain speed above zero",
+        "Change DoorFL from Closed → Open",
+        "Monitor first Gateway_Warnings frame",
+        "Extract DoorOpenWarn bit"
+      ],
+      "expected_result": "DoorOpenWarn = 1 in the same communication cycle",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s15_001(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_WINDOW_SEC)\n    assert msgs\n    assert decode_door_open_warn(msgs[0]) == 1"
+    },
+
+    {
+      "test_case_id": "TC-GW-S15-002",
+      "test_objective": "Verify DoorOpenWarn activates for front-right door transition while speed > 0.",
+      "preconditions": [
+        "Ignition ON",
+        "Vehicle speed > 0 km/h"
+      ],
+      "test_steps": [
+        "Open front-right door",
+        "Capture Gateway_Warnings"
+      ],
+      "expected_result": "DoorOpenWarn = 1 in the same cycle",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s15_002(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_WINDOW_SEC)\n    assert msgs\n    assert decode_door_open_warn(msgs[0]) == 1"
+    },
+
+    {
+      "test_case_id": "TC-GW-S15-003",
+      "test_objective": "Verify DoorOpenWarn activates for rear-left door transition while speed > 0.",
+      "preconditions": [
+        "Ignition ON",
+        "Vehicle speed > 0 km/h"
+      ],
+      "test_steps": [
+        "Open rear-left door",
+        "Capture Gateway_Warnings"
+      ],
+      "expected_result": "DoorOpenWarn = 1 in the same cycle",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s15_003(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_WINDOW_SEC)\n    assert msgs\n    assert decode_door_open_warn(msgs[0]) == 1"
+    },
+
+    {
+      "test_case_id": "TC-GW-S15-004",
+      "test_objective": "Verify DoorOpenWarn activates for rear-right door transition while speed > 0.",
+      "preconditions": [
+        "Ignition ON",
+        "Vehicle speed > 0 km/h"
+      ],
+      "test_steps": [
+        "Open rear-right door",
+        "Capture Gateway_Warnings"
+      ],
+      "expected_result": "DoorOpenWarn = 1 in the same cycle",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s15_004(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_WINDOW_SEC)\n    assert msgs\n    assert decode_door_open_warn(msgs[0]) == 1"
+    },
+
+    {
+      "test_case_id": "TC-GW-S15-005",
+      "test_objective": "Verify DoorOpenWarn activates when multiple doors transition simultaneously while speed > 0.",
+      "preconditions": [
+        "Ignition ON",
+        "Vehicle speed > 0 km/h",
+        "Multiple doors closed initially"
+      ],
+      "test_steps": [
+        "Open multiple doors simultaneously",
+        "Monitor Gateway_Warnings frames"
+      ],
+      "expected_result": "DoorOpenWarn = 1 without delay or missing cycle",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s15_005(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_WINDOW_SEC)\n    for m in msgs:\n        assert decode_door_open_warn(m) == 1"
+    },
+
+    {
+      "test_case_id": "TC-GW-S15-006",
+      "test_objective": "Verify DoorOpenWarn does not activate if door opens when vehicle speed = 0.",
+      "preconditions": [
+        "Ignition ON",
+        "Vehicle speed = 0"
+      ],
+      "test_steps": [
+        "Open any door",
+        "Monitor Gateway_Warnings"
+      ],
+      "expected_result": "DoorOpenWarn remains 0",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s15_006(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_WINDOW_SEC)\n    for m in msgs:\n        assert decode_door_open_warn(m) == 0"
+    },
+
+    {
+      "test_case_id": "TC-GW-S15-007",
+      "test_objective": "Verify DoorOpenWarn activates only once per cycle and not delayed to the next cycle.",
+      "preconditions": [
+        "Ignition ON",
+        "Vehicle speed > 0"
+      ],
+      "test_steps": [
+        "Open door",
+        "Observe first Gateway_Warnings frame after transition"
+      ],
+      "expected_result": "DoorOpenWarn asserted in the same CAN frame cycle",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s15_007(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_WINDOW_SEC)\n    assert len(msgs) >= 1\n    assert decode_door_open_warn(msgs[0]) == 1"
+    }
+
+  ]
+}

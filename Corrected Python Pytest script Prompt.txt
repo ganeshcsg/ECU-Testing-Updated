@@ -1,0 +1,108 @@
+You are generating a Python pytest test script for validating a Gateway ECU.
+The CAPL script already runs and transmits CAN messages.
+The Python script must ONLY receive and assert.
+
+This is a STRICT transformation task.
+DO NOT invent, merge, remove, or skip any test case.
+
+=============================================================================
+FULL SCRIPT REQUIRED
+=============================================================================
+
+Generate the COMPLETE script: imports, constants, can_bus fixture, collect_messages,
+decode_* helpers (from DBC SETUP), AND test functions. Do not omit any part.
+
+=============================================================================
+TEST FUNCTION COUNT AND LIST — FROM TEST CASE GENERATION ONLY
+=============================================================================
+
+The MANUAL TEST CASES provided below are the ONLY source for which test functions
+to implement and how many. Use DBC SETUP for message IDs and decode logic.
+
+RULE:
+- Generate EXACTLY ONE pytest test function for EACH manual test case below.
+- Number of pytest functions MUST equal number of manual test cases listed.
+- If ANY test case cannot be implemented, STOP and FAIL.
+
+=============================================================================
+REQUIRED PYTHON STRUCTURE (NO DEVIATION)
+=============================================================================
+
+1. Imports (exact):
+   import can
+   import pytest
+   import time
+
+2. Constants:
+   MESSAGE_ID = 0xXXX  (hex, from DBC)
+
+3. CAN fixture:
+   @pytest.fixture(scope="session")
+   def can_bus():
+       bus = can.Bus(interface="socketcan", channel="can0", bitrate=500000)
+       yield bus
+       bus.shutdown()
+
+4. Message collection utility:
+   def collect_messages(bus, arb_id, duration_sec):
+       start = time.time()
+       msgs = []
+       while time.time() - start < duration_sec:
+           msg = bus.recv(timeout=0.1)
+           if msg and msg.arbitration_id == arb_id:
+               msgs.append(msg)
+       return msgs
+
+5. Decode helpers:
+   - One decode_* function per signal
+   - Use explicit bit masking (msg.data[x] & mask)
+
+6. Test functions:
+   - Name format:
+     test_tc_<domain>_<number>_<short_description>
+   - Each test:
+     - Collect messages
+     - Assert at least one message received
+     - Decode required signals
+     - Assert expected value EXACTLY as manual test case
+
+=============================================================================
+STRICT RULES
+=============================================================================
+
+- DO NOT send CAN messages from Python
+- DO NOT use CANoe APIs
+- DO NOT combine multiple test cases into one test
+- DO NOT add retries, loops, or optimizations
+- DO NOT infer behavior not stated in test cases
+- Assume CAPL places ECU in correct state per test case
+- ALWAYS add comments related to logic.
+
+=============================================================================
+DBC SETUP
+=============================================================================
+{python_setup_info}
+
+=============================================================================
+REQUIREMENT (REFERENCE ONLY — NOT A SOURCE OF TEST LOGIC)
+=============================================================================
+{requirement}
+
+=============================================================================
+MANUAL TEST CASES (MUST BE 1:1 MAPPED)
+=============================================================================
+{test_cases}
+
+=============================================================================
+CAPL SCRIPT (REFERENCE — DO NOT MODIFY)
+=============================================================================
+{capl_script}
+
+=============================================================================
+OUTPUT FORMAT
+=============================================================================
+- Output ONLY valid Python code. Nothing else.
+- No markdown (no ``` fences).
+- No explanations, no prose, no bullet lists describing the script.
+- Do NOT add text at the start or end such as "This script meets...", "The script includes...", or any summary with * / - bullets.
+- No comments outside code. Start directly with the first line of Python (e.g. import can).

@@ -1,0 +1,78 @@
+{
+  "requirement": {
+    "requirement_id": "ABS-REQ-02",
+    "description": "The braking controller shall ensure that all wheel speed values are updated at a consistent rate suitable for vehicle dynamics and speed correlation.",
+    "can_message": {
+      "node": "ABS",
+      "arbitration_id": "0x2BC",
+      "message_name": "ABS_Wheel_Info",
+      "expected_cycle_time_ms": 10,
+      "tolerance": "±20%",
+      "signals": [
+        {
+          "name": "ABS_Wheel_FL_Speed"
+        },
+        {
+          "name": "ABS_Wheel_FR_Speed"
+        },
+        {
+          "name": "ABS_Wheel_RL_Speed"
+        },
+        {
+          "name": "ABS_Wheel_RR_Speed"
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-ABS-005",
+      "test_objective": "Verify ABS wheel speed message periodicity.",
+      "preconditions": [
+        "Ignition ON",
+        "Vehicle moving",
+        "CAN tool connected"
+      ],
+      "test_steps": [
+        "Start ignition",
+        "Drive vehicle at constant speed",
+        "Monitor CAN ID 0x2BC",
+        "Measure time delta between consecutive frames"
+      ],
+      "expected_result": "Message cycle time remains within ±20% tolerance",
+      "test_type": "Timing",
+      "python_test_script": "def test_tc_abs_005_message_cycle_time(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_ABS_WHEEL_INFO, 2)\n    assert len(msgs) >= 5\n    timestamps = [msg.timestamp for msg in msgs]\n    deltas = [(timestamps[i+1] - timestamps[i]) * 1000 for i in range(len(timestamps)-1)]\n    for delta in deltas:\n        assert 8 <= delta <= 12"
+    },
+    {
+      "test_case_id": "TC-ABS-006",
+      "test_objective": "Verify all four wheel speeds update every cycle.",
+      "preconditions": [
+        "Ignition ON",
+        "Vehicle moving"
+      ],
+      "test_steps": [
+        "Monitor ABS_Wheel_Info",
+        "Compare wheel speed values across frames"
+      ],
+      "expected_result": "No missed or stale wheel speed updates",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_abs_006_wheel_updates(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_ABS_WHEEL_INFO, 2)\n    fl = [decode_fl_speed(m) for m in msgs]\n    assert len(set(fl)) > 1"
+    },
+    {
+      "test_case_id": "TC-ABS-007",
+      "test_objective": "Verify synchronous update of all wheel speeds.",
+      "preconditions": [
+        "Ignition ON",
+        "Vehicle moving"
+      ],
+      "test_steps": [
+        "Capture consecutive CAN frames",
+        "Compare timestamps of wheel speed signals"
+      ],
+      "expected_result": "All wheel speeds update in the same CAN frame",
+      "test_type": "Integration",
+      "python_test_script": "def test_tc_abs_007_synchronous_update(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_ABS_WHEEL_INFO, 1)\n    for msg in msgs:\n        speeds = [decode_fl_speed(msg), decode_fr_speed(msg), decode_rl_speed(msg), decode_rr_speed(msg)]\n        assert max(speeds) - min(speeds) <= 5"
+    }
+  ]
+}

@@ -1,0 +1,509 @@
+{
+  "DBC_outout_after_parsing": {
+    "version": "1.1",
+    "nodes": [
+      "BCM",
+      "ECM",
+      "TCM",
+      "IC",
+      "GW",
+      "ABS"
+    ],
+    "messages": [
+      {
+        "frame_id": 300,
+        "name": "BCM_Body_State",
+        "length": 8,
+        "senders": ["BCM"],
+        "signals": [
+          {
+            "name": "Bdy_Hazard_Active",
+            "start": 0,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["GW", "IC"]
+          },
+          {
+            "name": "Bdy_Parking_Lamp",
+            "start": 1,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["GW", "IC"]
+          },
+          {
+            "name": "Bdy_Door_Front_Left",
+            "start": 2,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["GW"]
+          },
+          {
+            "name": "Bdy_Door_Front_Right",
+            "start": 3,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["GW"]
+          },
+          {
+            "name": "Bdy_Door_Rear_Left",
+            "start": 4,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["GW"]
+          },
+          {
+            "name": "Bdy_Door_Rear_Right",
+            "start": 5,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["GW"]
+          },
+          {
+            "name": "Bdy_Hood_Open",
+            "start": 6,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["GW"]
+          },
+          {
+            "name": "Bdy_Tailgate_Open",
+            "start": 7,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["GW"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 520,
+        "name": "ECM_Powertrain_Data",
+        "length": 8,
+        "senders": ["ECM"],
+        "signals": [
+          {
+            "name": "ECM_Vehicle_Speed",
+            "start": 0,
+            "length": 16,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 0.01,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 260,
+            "unit": "km/h",
+            "receivers": ["GW", "IC", "ABS"]
+          },
+          {
+            "name": "ECM_Engine_Speed",
+            "start": 16,
+            "length": 16,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 0.25,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 9000,
+            "unit": "rpm",
+            "receivers": ["GW", "IC"]
+          },
+          {
+            "name": "ECM_Throttle_Position",
+            "start": 32,
+            "length": 8,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 0.4,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 100,
+            "unit": "%",
+            "receivers": ["GW"]
+          },
+          {
+            "name": "ECM_Engine_Temp",
+            "start": 40,
+            "length": 8,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": -40,
+            "minimum": -40,
+            "maximum": 215,
+            "unit": "degC",
+            "receivers": ["GW"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 560,
+        "name": "TCM_Gear_Status",
+        "length": 4,
+        "senders": ["TCM"],
+        "signals": [
+          {
+            "name": "TCM_Current_Gear",
+            "start": 0,
+            "length": 4,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 15,
+            "unit": "",
+            "receivers": ["GW", "IC"]
+          },
+          {
+            "name": "TCM_Shift_In_Progress",
+            "start": 4,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["GW"]
+          },
+          {
+            "name": "TCM_Clutch_Engaged",
+            "start": 5,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["GW"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 640,
+        "name": "IC_Driver_Command",
+        "length": 4,
+        "senders": ["IC"],
+        "signals": [
+          {
+            "name": "IC_Horn_Request",
+            "start": 0,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["GW"]
+          },
+          {
+            "name": "IC_Turn_Command",
+            "start": 1,
+            "length": 2,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 3,
+            "unit": "",
+            "receivers": ["GW"]
+          },
+          {
+            "name": "IC_HighBeam_Request",
+            "start": 3,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["GW"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 700,
+        "name": "ABS_Wheel_Info",
+        "length": 8,
+        "senders": ["ABS"],
+        "signals": [
+          {
+            "name": "ABS_Wheel_FL_Speed",
+            "start": 0,
+            "length": 12,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 0.1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 250,
+            "unit": "km/h",
+            "receivers": ["GW"]
+          },
+          {
+            "name": "ABS_Wheel_FR_Speed",
+            "start": 12,
+            "length": 12,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 0.1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 250,
+            "unit": "km/h",
+            "receivers": ["GW"]
+          },
+          {
+            "name": "ABS_Wheel_RL_Speed",
+            "start": 24,
+            "length": 12,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 0.1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 250,
+            "unit": "km/h",
+            "receivers": ["GW"]
+          },
+          {
+            "name": "ABS_Wheel_RR_Speed",
+            "start": 36,
+            "length": 12,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 0.1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 250,
+            "unit": "km/h",
+            "receivers": ["GW"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 900,
+        "name": "GW_System_Overview",
+        "length": 8,
+        "senders": ["GW"],
+        "signals": [
+          {
+            "name": "GWS_Any_Door_Open",
+            "start": 0,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["BCM", "IC"]
+          },
+          {
+            "name": "GWS_Horn_Active",
+            "start": 1,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["BCM"]
+          },
+          {
+            "name": "GWS_Vehicle_Speed",
+            "start": 8,
+            "length": 16,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 0.01,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 260,
+            "unit": "km/h",
+            "receivers": ["BCM", "IC"]
+          },
+          {
+            "name": "GWS_Gear_Position",
+            "start": 24,
+            "length": 4,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 15,
+            "unit": "",
+            "receivers": ["IC"]
+          },
+          {
+            "name": "GWS_Indicator_State",
+            "start": 28,
+            "length": 2,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 3,
+            "unit": "",
+            "receivers": ["BCM", "IC"]
+          },
+          {
+            "name": "GWS_Any_Light_On",
+            "start": 30,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["BCM"]
+          },
+          {
+            "name": "GWS_Powertrain_Fault",
+            "start": 31,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["IC"]
+          }
+        ]
+      }
+    ]
+  },
+
+  "requirements": [
+    {
+      "requirement_id": "IC-REQ-01",
+      "requirement_text": "When the driver presses or releases the horn switch, the instrument cluster shall immediately transmit the horn request state to the gateway ECU.",
+      "capl_script": "/* REQ: IC-REQ-01 */\nvariables\n{\n  message 640 IC_Driver_Command msgICDriverCmd;\n}\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 4; i++)\n  {\n    msgICDriverCmd.byte(i) = 0;\n  }\n  msgICDriverCmd.dlc = 4;\n  msgICDriverCmd.IC_Horn_Request = 0;\n  output(msgICDriverCmd);\n}\non sysvar_update sysvar::IC::HornSwitch\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 4; i++)\n  {\n    msgICDriverCmd.byte(i) = 0;\n  }\n  msgICDriverCmd.dlc = 4;\n  msgICDriverCmd.IC_Horn_Request = @sysvar::IC::HornSwitch;\n  output(msgICDriverCmd);\n}"
+    },
+    {
+      "requirement_id": "IC-REQ-02",
+      "requirement_text": "When the driver changes the turn indicator stalk position, the instrument cluster shall immediately transmit the requested indicator direction to the gateway ECU.",
+      "capl_script": "/* REQ: IC-REQ-02 */\nvariables\n{\n  message 640 IC_Driver_Command msgIC;\n}\nvoid sendTurnCommand(int value)\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 4; i++)\n  {\n    msgIC.byte(i) = 0;\n  }\n  msgIC.dlc = 4;\n  msgIC.IC_Turn_Command = value;\n  output(msgIC);\n}\non key '0' { sendTurnCommand(0); }\non key '1' { sendTurnCommand(1); }\non key '2' { sendTurnCommand(2); }\non key '3' { sendTurnCommand(3); }"
+    },
+    {
+      "requirement_id": "IC-REQ-03",
+      "requirement_text": "When the driver activates or deactivates the high-beam request, the instrument cluster shall immediately communicate the high-beam request status to the gateway ECU",
+      "capl_script": "/* REQ: IC-REQ-03 */\nvariables\n{\n  message IC_Driver_Command icMsg;\n  int highBeamState = 0;\n}\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 4; i++)\n  {\n    icMsg.byte(i) = 0;\n  }\n  icMsg.dlc = 4;\n  icMsg.IC_HighBeam_Request = 0;\n  output(icMsg);\n}\non key 'h'\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 4; i++)\n  {\n    icMsg.byte(i) = 0;\n  }\n  icMsg.dlc = 4;\n  highBeamState = 1;\n  icMsg.IC_HighBeam_Request = 1;\n  output(icMsg);\n}\non key 'l'\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 4; i++)\n  {\n    icMsg.byte(i) = 0;\n  }\n  icMsg.dlc = 4;\n  highBeamState = 0;\n  icMsg.IC_HighBeam_Request = 0;\n  output(icMsg);\n}"
+    },
+    {
+      "requirement_id": "ABS-REQ-01",
+      "requirement_text": "The braking controller shall periodically transmit individual wheel speed values for all four wheels to the gateway ECU.",
+      "capl_script": "variables\n{\n  msTimer absTxTimer;\n  float baseSpeed = 40.0;\n  float flSpeed;\n  float frSpeed;\n  float rlSpeed;\n  float rrSpeed;\n}\n\non start\n{\n  setTimer(absTxTimer, 100);\n}\n\non timer absTxTimer\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    ABS_Wheel_Info.byte(i) = 0;\n  }\n  ABS_Wheel_Info.dlc = 8;\n  flSpeed = limit(baseSpeed + random(-5, 5) * 0.1, 0.0, 250.0);\n  frSpeed = limit(baseSpeed + random(-5, 5) * 0.1, 0.0, 250.0);\n  rlSpeed = limit(baseSpeed + random(-5, 5) * 0.1, 0.0, 250.0);\n  rrSpeed = limit(baseSpeed + random(-5, 5) * 0.1, 0.0, 250.0);\n  \n  ABS_Wheel_Info.ABS_Wheel_FL_Speed = flSpeed;\n  ABS_Wheel_Info.ABS_Wheel_FR_Speed = frSpeed;\n  ABS_Wheel_Info.ABS_Wheel_RL_Speed = rlSpeed;\n  ABS_Wheel_Info.ABS_Wheel_RR_Speed = rrSpeed;\n  \n  output(ABS_Wheel_Info);\n  setTimer(absTxTimer, 100);\n}\n\non key '+'\n{\n  baseSpeed += 5;\n  if (baseSpeed > 250) baseSpeed = 250;\n}\n\non key '-'\n{\n  baseSpeed -= 5;\n  if (baseSpeed < 0) baseSpeed = 0;\n}"
+    },
+    {
+      "requirement_id": "ABS-REQ-02",
+      "requirement_text": "The braking controller shall ensure that all wheel speed values are updated at a consistent rate suitable for vehicle dynamics and speed correlation.",
+      "capl_script": "variables\n{\n  msTimer wheelTimer;\n  message 700 ABS_Wheel_Info msgWheel;\n  float baseSpeed = 0.0;\n  float accel = 0.2;\n  int direction = 1;\n}\n\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgWheel.byte(i) = 0;\n  }\n  msgWheel.dlc = 8;\n  setTimer(wheelTimer, 20);\n}\n\non timer wheelTimer\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgWheel.byte(i) = 0;\n  }\n  msgWheel.dlc = 8;\n  baseSpeed += accel * direction;\n  if (baseSpeed > 120) direction = -1;\n  if (baseSpeed < 0) direction = 1;\n  \n  msgWheel.ABS_Wheel_FL_Speed = baseSpeed + 0.2;\n  msgWheel.ABS_Wheel_FR_Speed = baseSpeed - 0.1;\n  msgWheel.ABS_Wheel_RL_Speed = baseSpeed + 0.0;\n  msgWheel.ABS_Wheel_RR_Speed = baseSpeed - 0.2;\n  \n  output(msgWheel);\n  setTimer(wheelTimer, 20);\n}"
+    },
+    {
+      "requirement_id": "GW-REQ-01",
+      "requirement_text": "The gateway ECU shall immediately receive and process all event-driven body and driver input signals, including horn requests, indicator commands, and door state changes.",
+      "capl_script": "variables\n{\n  message BCM_Body_State msgBCM;\n  message IC_Driver_Command msgIC;\n  message GW_System_Overview msgGW;\n  msTimer gwTxTimer;\n}\n\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgGW.byte(i) = 0;\n  }\n  msgGW.dlc = 8;\n  msgGW.GWS_Any_Door_Open = 0;\n  msgGW.GWS_Horn_Active = 0;\n  msgGW.GWS_Indicator_State = 0;\n  msgGW.GWS_Any_Light_On = 0;\n  setTimer(gwTxTimer, 100);\n}\n\non timer gwTxTimer\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgGW.byte(i) = 0;\n  }\n  msgGW.dlc = 8;\n  output(msgGW);\n  setTimer(gwTxTimer, 100);\n}\n\non message BCM_Body_State\n{\n  msgBCM = this;\n  msgGW.GWS_Any_Door_Open = (msgBCM.Bdy_Door_Front_Left || msgBCM.Bdy_Door_Front_Right || msgBCM.Bdy_Door_Rear_Left || msgBCM.Bdy_Door_Rear_Right || msgBCM.Bdy_Tailgate_Open);\n  msgGW.GWS_Any_Light_On = (msgBCM.Bdy_Hazard_Active || msgBCM.Bdy_Parking_Lamp);\n}\n\non message IC_Driver_Command\n{\n  msgIC = this;\n  msgGW.GWS_Horn_Active = msgIC.IC_Horn_Request;\n  msgGW.GWS_Indicator_State = msgIC.IC_Turn_Command;\n}"
+    },
+    {
+      "requirement_id": "GW-REQ-02",
+      "requirement_text": "The gateway ECU shall periodically receive powertrain-related signals such as vehicle speed, engine speed, gear position, and wheel speed values.",
+      "capl_script": "variables\n{\n  msTimer powertrainTimer;\n  message 520 ECM_Powertrain_Data;\n  message 560 TCM_Gear_Status;\n  message 700 ABS_Wheel_Info;\n  float vehicleSpeed = 0.0;\n  int engineSpeed = 800;\n  int gear = 1;\n}\n\non start\n{\n  setTimer(powertrainTimer, 100);\n}\n\non timer powertrainTimer\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    ECM_Powertrain_Data.byte(i) = 0;\n    TCM_Gear_Status.byte(i) = 0;\n    ABS_Wheel_Info.byte(i) = 0;\n  }\n  ECM_Powertrain_Data.dlc = 8;\n  TCM_Gear_Status.dlc = 8;\n  ABS_Wheel_Info.dlc = 8;\n  vehicleSpeed += 0.5;\n  if (vehicleSpeed > 120) vehicleSpeed = 0;\n  engineSpeed = 800 + (int)(vehicleSpeed * 40);\n  gear = (int)(vehicleSpeed / 20) + 1;\n  \n  ECM_Powertrain_Data.ECM_Vehicle_Speed = vehicleSpeed;\n  ECM_Powertrain_Data.ECM_Engine_Speed = engineSpeed;\n  output(ECM_Powertrain_Data);\n  \n  TCM_Gear_Status.TCM_Current_Gear = (gear > 6) ? 6 : gear;\n  output(TCM_Gear_Status);\n  \n  ABS_Wheel_Info.ABS_Wheel_FL_Speed = vehicleSpeed;\n  output(ABS_Wheel_Info);\n  \n  setTimer(powertrainTimer, 100);\n}"
+    },
+    {
+      "requirement_id": "GW-REQ-03",
+      "requirement_text": "When one or more door open indications are detected from the body controller, the gateway shall immediately transmit a consolidated door-open status indicating whether any vehicle door is open.",
+      "capl_script": "variables\n{\n  message BCM_Body_State bcmMsg;\n  message GW_System_Overview gwMsg;\n  int anyDoorOpen;\n}\n\non message BCM_Body_State\n{\n  bcmMsg = this;\n  anyDoorOpen = (bcmMsg.Bdy_Door_Front_Left || bcmMsg.Bdy_Door_Front_Right || bcmMsg.Bdy_Door_Rear_Left || bcmMsg.Bdy_Door_Rear_Right);\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    gwMsg.byte(i) = 0;\n  }\n  gwMsg.dlc = 8;\n  gwMsg.GWS_Any_Door_Open = anyDoorOpen;\n  output(gwMsg);\n}"
+    },
+    {
+      "requirement_id": "GW-REQ-04",
+      "requirement_text": "When a horn request is received from the instrument cluster, the gateway shall immediately reflect the horn active status on the vehicle network.",
+      "capl_script": "variables\n{\n  message GW_System_Overview gwMsg;\n  msTimer gwCyclicTimer;\n  int hornState = 0;\n}\n\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    gwMsg.byte(i) = 0;\n  }\n  gwMsg.dlc = 8;\n  gwMsg.GWS_Horn_Active = 0;\n  setTimer(gwCyclicTimer, 100);\n}\n\non message IC_Driver_Command\n{\n  if (this.IC_Horn_Request != hornState)\n  {\n    hornState = this.IC_Horn_Request;\n    // Reset payload before setting signals\n    int i;\n    for (i = 0; i < 8; i++)\n    {\n      gwMsg.byte(i) = 0;\n    }\n    gwMsg.dlc = 8;\n    gwMsg.GWS_Horn_Active = hornState;\n    output(gwMsg);\n  }\n}\n\non timer gwCyclicTimer\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    gwMsg.byte(i) = 0;\n  }\n  gwMsg.dlc = 8;\n  output(gwMsg);\n  setTimer(gwCyclicTimer, 100);\n}"
+    },
+    {
+      "requirement_id": "GW-REQ-05",
+      "requirement_text": "The gateway shall periodically transmit a vehicle speed value derived from the most recently received engine speed or wheel speed information.",
+      "capl_script": "/* REQ: GW-REQ-05 */\nvariables\n{\n  msTimer gwTxTimer;\n  float ecmVehSpeed = -1;\n  float ecmEngSpeed = -1;\n  float wheelFL = -1; float wheelFR = -1; float wheelRL = -1; float wheelRR = -1;\n  float derivedSpeed = 0;\n}\n\non start\n{\n  setTimer(gwTxTimer, 100);\n}\n\non message ECM_Powertrain_Data\n{\n  ecmVehSpeed = this.ECM_Vehicle_Speed;\n  ecmEngSpeed = this.ECM_Engine_Speed;\n}\n\non message ABS_Wheel_Info\n{\n  wheelFL = this.ABS_Wheel_FL_Speed; wheelFR = this.ABS_Wheel_FR_Speed;\n  wheelRL = this.ABS_Wheel_RL_Speed; wheelRR = this.ABS_Wheel_RR_Speed;\n}\n\non timer gwTxTimer\n{\n  message GW_System_Overview gwMsg;\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    gwMsg.byte(i) = 0;\n  }\n  gwMsg.dlc = 8;\n  int validWheels = 0; float sum = 0;\n  if (wheelFL >= 0) { sum += wheelFL; validWheels++; }\n  if (wheelFR >= 0) { sum += wheelFR; validWheels++; }\n  if (wheelRL >= 0) { sum += wheelRL; validWheels++; }\n  if (wheelRR >= 0) { sum += wheelRR; validWheels++; }\n  if (validWheels > 0) derivedSpeed = sum / validWheels;\n  else if (ecmVehSpeed >= 0) derivedSpeed = ecmVehSpeed;\n  else if (ecmEngSpeed >= 0) derivedSpeed = ecmEngSpeed * 0.02;\n  else derivedSpeed = 0;\n  derivedSpeed = (derivedSpeed > 260) ? 260 : (derivedSpeed < 0 ? 0 : derivedSpeed);\n  gwMsg.GWS_Vehicle_Speed = derivedSpeed;\n  output(gwMsg);\n  setTimer(gwTxTimer, 100);\n}"
+    },
+    {
+      "requirement_id": "GW-REQ-06",
+      "requirement_text": "When any exterior lighting request or hazard condition is active, the gateway shall immediately transmit a consolidated exterior lighting state to the network.",
+      "capl_script": "/* REQ: GW-REQ-06 */\nvariables\n{\n  message GW_System_Overview msgGW;\n  int hazardActive = 0; int parkingLamp = 0; int turnCommand = 0;\n  msTimer txTimer;\n}\n\non start\n{\n  // Initialize message payload to safe state\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgGW.byte(i) = 0;\n  }\n  msgGW.dlc = 8;\n  msgGW.GWS_Any_Light_On = 0;\n  msgGW.GWS_Indicator_State = 0;\n  setTimer(txTimer, 100);\n}\n\non message BCM_Body_State\n{\n  hazardActive = this.Bdy_Hazard_Active;\n  parkingLamp  = this.Bdy_Parking_Lamp;\n  updateExteriorLightState();\n}\n\non message IC_Driver_Command\n{\n  turnCommand = this.IC_Turn_Command;\n  updateExteriorLightState();\n}\n\nvoid updateExteriorLightState()\n{\n  int anyLight = 0; int indicatorState = 0;\n  if (hazardActive == 1 || turnCommand == 3) { indicatorState = 3; anyLight = 1; }\n  else if (turnCommand == 1) { indicatorState = 1; anyLight = 1; }\n  else if (turnCommand == 2) { indicatorState = 2; anyLight = 1; }\n  if (parkingLamp == 1) anyLight = 1;\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgGW.byte(i) = 0;\n  }\n  msgGW.dlc = 8;\n  msgGW.GWS_Any_Light_On = anyLight;\n  msgGW.GWS_Indicator_State = indicatorState;\n  output(msgGW);\n}\n\non timer txTimer\n{\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgGW.byte(i) = 0;\n  }\n  msgGW.dlc = 8;\n  output(msgGW);\n  setTimer(txTimer, 100);\n}"
+    },
+    {
+      "requirement_id": "GW-REQ-07",
+      "requirement_text": "The gateway shall periodically transmit the currently selected gear position for display and diagnostic purposes.",
+      "capl_script": "/* REQ: GW-REQ-07 */\nvariables\n{\n  msTimer gwTxTimer;\n  int currentGear = 0;\n}\n\non start\n{\n  setTimer(gwTxTimer, 100);\n}\n\non message TCM_Gear_Status\n{\n  currentGear = this.TCM_Current_Gear;\n}\n\non timer gwTxTimer\n{\n  message GW_System_Overview msg;\n  msg.GWS_Gear_Position = currentGear;\n  output(msg);\n  setTimer(gwTxTimer, 100);\n}"
+    }
+
+  ]
+}

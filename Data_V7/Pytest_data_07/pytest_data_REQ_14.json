@@ -1,0 +1,170 @@
+{
+  "requirement": {
+    "requirement_id": "C-04",
+    "description": "The gateway shall increment a rolling message counter for all cyclic safety-related messages.",
+    "can_message": {
+      "node": "Gateway",
+      "arbitration_id": "0x119",
+      "message_name": "GW_SafetyMessage",
+      "dlc": 8,
+      "signals": [
+        {
+          "name": "MsgCounter",
+          "start_bit": 32,
+          "length": 4,
+          "byte_order": "little_endian",
+          "values": {
+            "0-15": "Rolling counter (modulo 16)"
+          }
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-C04-001",
+      "test_objective": "Verify that the GW_SafetyMessage contains a MsgCounter signal.",
+      "preconditions": [
+        "Vehicle ignition ON",
+        "Gateway ECU active",
+        "CAN monitoring tool connected and configured to capture message ID 0x119"
+      ],
+      "test_steps": [
+        "Switch ignition ON",
+        "Monitor the CAN bus for GW_SafetyMessage",
+        "Extract the MsgCounter signal from bits 32–35"
+      ],
+      "expected_result": "MsgCounter signal is present in every GW_SafetyMessage frame.",
+      "postconditions": [
+        "Continue CAN monitoring"
+      ],
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_c04_001_msg_counter_present(can_bus):\n    msgs = collect_messages(can_bus, 0x119, 3)\n    for msg in msgs:\n        assert decode_msg_counter(msg) is not None"
+    },
+    {
+      "test_case_id": "TC-GW-C04-002",
+      "test_objective": "Verify that MsgCounter increments by 1 for each consecutive GW_SafetyMessage.",
+      "preconditions": [
+        "Gateway ECU active",
+        "GW_SafetyMessage transmitted cyclically"
+      ],
+      "test_steps": [
+        "Capture multiple consecutive GW_SafetyMessage frames",
+        "Extract MsgCounter from each frame"
+      ],
+      "expected_result": "MsgCounter increments by +1 between consecutive messages.",
+      "postconditions": [
+        "Continue CAN monitoring"
+      ],
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_c04_002_counter_increments(can_bus):\n    msgs = collect_messages(can_bus, 0x119, 5)\n    counters = [decode_msg_counter(m) for m in msgs]\n    for i in range(1, len(counters)):\n        assert counters[i] == (counters[i - 1] + 1) % 16"
+    },
+    {
+      "test_case_id": "TC-GW-C04-003",
+      "test_objective": "Verify that MsgCounter rolls over from 15 to 0.",
+      "preconditions": [
+        "Gateway ECU active",
+        "MsgCounter approaching maximum value"
+      ],
+      "test_steps": [
+        "Monitor GW_SafetyMessage until MsgCounter reaches 15",
+        "Observe next transmitted message"
+      ],
+      "expected_result": "MsgCounter rolls over from 15 to 0.",
+      "postconditions": [
+        "Continue CAN monitoring"
+      ],
+      "test_type": "Boundary",
+      "python_test_script": "def test_tc_gw_c04_003_counter_rollover(can_bus):\n    msgs = collect_messages(can_bus, 0x119, 20)\n    counters = [decode_msg_counter(m) for m in msgs]\n    assert 15 in counters and 0 in counters"
+    },
+    {
+      "test_case_id": "TC-GW-C04-004",
+      "test_objective": "Verify that MsgCounter increments continuously without skipping values.",
+      "preconditions": [
+        "Gateway ECU active",
+        "Stable network conditions"
+      ],
+      "test_steps": [
+        "Capture a sequence of GW_SafetyMessage frames",
+        "Verify sequential MsgCounter values"
+      ],
+      "expected_result": "No skipped or repeated MsgCounter values observed.",
+      "postconditions": [
+        "Continue CAN monitoring"
+      ],
+      "test_type": "Robustness",
+      "python_test_script": "def test_tc_gw_c04_004_no_skipped_values(can_bus):\n    msgs = collect_messages(can_bus, 0x119, 10)\n    counters = [decode_msg_counter(m) for m in msgs]\n    for i in range(1, len(counters)):\n        assert counters[i] == (counters[i - 1] + 1) % 16"
+    },
+    {
+      "test_case_id": "TC-GW-C04-005",
+      "test_objective": "Verify MsgCounter behavior after Gateway reset.",
+      "preconditions": [
+        "Gateway ECU active"
+      ],
+      "test_steps": [
+        "Trigger Gateway reset via CAPL",
+        "Monitor first GW_SafetyMessage after restart",
+        "Extract MsgCounter"
+      ],
+      "expected_result": "MsgCounter restarts from a valid value (0–15, typically 0).",
+      "postconditions": [
+        "Continue CAN monitoring"
+      ],
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_c04_005_counter_after_reset(can_bus):\n    time.sleep(3)\n    msg = collect_messages(can_bus, 0x119, 1)[0]\n    assert 0 <= decode_msg_counter(msg) <= 15"
+    },
+    {
+      "test_case_id": "TC-GW-C04-006",
+      "test_objective": "Verify MsgCounter continues incrementing across ignition cycles.",
+      "preconditions": [
+        "Gateway ECU active"
+      ],
+      "test_steps": [
+        "Switch ignition OFF",
+        "Switch ignition ON",
+        "Monitor GW_SafetyMessage MsgCounter behavior"
+      ],
+      "expected_result": "MsgCounter resumes valid rolling increment behavior after ignition ON.",
+      "postconditions": [
+        "Stop CAN monitoring"
+      ],
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_c04_006_counter_after_ignition_cycle(can_bus):\n    time.sleep(3)\n    msgs = collect_messages(can_bus, 0x119, 3)\n    counters = [decode_msg_counter(m) for m in msgs]\n    for i in range(1, len(counters)):\n        assert counters[i] == (counters[i - 1] + 1) % 16"
+    },
+    {
+      "test_case_id": "TC-GW-C04-007",
+      "test_objective": "Verify MsgCounter is limited to 4-bit range (0–15).",
+      "preconditions": [
+        "Gateway ECU active"
+      ],
+      "test_steps": [
+        "Monitor multiple GW_SafetyMessage frames",
+        "Observe MsgCounter values"
+      ],
+      "expected_result": "MsgCounter never exceeds value 15.",
+      "postconditions": [
+        "Stop CAN monitoring"
+      ],
+      "test_type": "Boundary",
+      "python_test_script": "def test_tc_gw_c04_007_counter_range(can_bus):\n    msgs = collect_messages(can_bus, 0x119, 10)\n    for msg in msgs:\n        assert 0 <= decode_msg_counter(msg) <= 15"
+    },
+    {
+      "test_case_id": "TC-GW-C04-008",
+      "test_objective": "Verify MsgCounter is present and increments in every transmitted GW_SafetyMessage.",
+      "preconditions": [
+        "Gateway ECU active"
+      ],
+      "test_steps": [
+        "Monitor GW_SafetyMessage for extended duration",
+        "Extract MsgCounter from each frame"
+      ],
+      "expected_result": "Every GW_SafetyMessage contains a valid incrementing MsgCounter.",
+      "postconditions": [
+        "Ignition OFF"
+      ],
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_c04_008_counter_always_incrementing(can_bus):\n    msgs = collect_messages(can_bus, 0x119, 8)\n    counters = [decode_msg_counter(m) for m in msgs]\n    for i in range(1, len(counters)):\n        assert counters[i] == (counters[i - 1] + 1) % 16"
+    }
+  ]
+}

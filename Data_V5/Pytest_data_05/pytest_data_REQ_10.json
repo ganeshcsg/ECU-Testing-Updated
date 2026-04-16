@@ -1,0 +1,92 @@
+{
+  "requirement": {
+    "requirement_id": "GW-REQ-10",
+    "description": "Upon a change in overspeed warning status, the gateway shall immediately transmit the updated warning information to the instrument cluster.",
+    "can_messages": [
+      {
+        "node": "Gateway",
+        "arbitration_id": "0xD2",
+        "message_name": "GW_Warnings",
+        "signal": "OverspeedWarning",
+        "bit": 0,
+        "trigger_type": "event_based_immediate"
+      }
+    ],
+    "python_test_setup": "import os\nimport time\nimport pytest\nimport can\n\nMSG_ID_GW_WARNINGS = 0xD2\nEXPECTED_MIN_MESSAGES = 3\n\n@pytest.fixture(scope=\"module\")\ndef can_bus():\n    bus = can.interface.Bus(interface=os.getenv('CAN_INTERFACE', 'socketcan'), channel=os.getenv('CAN_CHANNEL', 'can0'), bitrate=500000)\n    yield bus\n    bus.shutdown()\n\ndef decode_overspeed_warning(data_bytes: bytes) -> int:\n    # OverspeedWarning = bit 0 -> byte 0, bit 0\n    return (data_bytes[0] >> 0) & 0x01\n\ndef collect_warning_messages(bus, duration_sec=2.0):\n    msgs = []\n    start = time.time()\n    while time.time() - start < duration_sec:\n        msg = bus.recv(timeout=0.2)\n        if msg and msg.arbitration_id == MSG_ID_GW_WARNINGS:\n            msgs.append(msg)\n    return msgs"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-OVR-IMM-001",
+      "title": "Verify immediate transmission when overspeed changes 0 to 1",
+      "precondition": "Ignition ON; VehicleSpeed below threshold; Monitor CAN ID 0xD2",
+      "steps": [
+        "Maintain VehicleSpeed below threshold",
+        "Increase speed above threshold",
+        "Capture GW_Warnings for 3 seconds",
+        "Observe OverspeedWarning transition"
+      ],
+      "expected_result": "OverspeedWarning transitions from 0 to 1 and is transmitted immediately",
+      "python_test_script": "def test_tc_gw_ovr_imm_001_immediate_set(can_bus):\n    msgs = collect_warning_messages(can_bus, 3.0)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES\n    states = [decode_overspeed_warning(m.data) for m in msgs]\n    assert 0 in states and 1 in states\n    assert states[-1] == 1"
+    },
+    {
+      "test_case_id": "TC-GW-OVR-IMM-002",
+      "title": "Verify immediate transmission when overspeed clears 1 to 0",
+      "precondition": "Ignition ON; Overspeed active; Monitor CAN ID 0xD2",
+      "steps": [
+        "Ensure VehicleSpeed above threshold",
+        "Reduce speed below threshold",
+        "Capture GW_Warnings for 3 seconds"
+      ],
+      "expected_result": "OverspeedWarning transitions from 1 to 0 and is transmitted immediately",
+      "python_test_script": "def test_tc_gw_ovr_imm_002_immediate_clear(can_bus):\n    msgs = collect_warning_messages(can_bus, 3.0)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES\n    states = [decode_overspeed_warning(m.data) for m in msgs]\n    assert states[-1] == 0"
+    },
+    {
+      "test_case_id": "TC-GW-OVR-IMM-003",
+      "title": "Verify immediate transmission on rapid speed increase",
+      "precondition": "Ignition ON; VehicleSpeed well below threshold; Monitor CAN ID 0xD2",
+      "steps": [
+        "Rapidly increase VehicleSpeed beyond threshold",
+        "Capture next GW_Warnings frames",
+        "Decode OverspeedWarning"
+      ],
+      "expected_result": "OverspeedWarning = 1 transmitted immediately without delay",
+      "python_test_script": "def test_tc_gw_ovr_imm_003_rapid_increase(can_bus):\n    msgs = collect_warning_messages(can_bus, 2.0)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES\n    states = [decode_overspeed_warning(m.data) for m in msgs]\n    assert states[-1] == 1"
+    },
+    {
+      "test_case_id": "TC-GW-OVR-IMM-004",
+      "title": "Verify immediate transmission on rapid speed decrease",
+      "precondition": "Ignition ON; VehicleSpeed above threshold; Monitor CAN ID 0xD2",
+      "steps": [
+        "Rapidly reduce VehicleSpeed below threshold",
+        "Capture next GW_Warnings frames",
+        "Decode OverspeedWarning"
+      ],
+      "expected_result": "OverspeedWarning = 0 transmitted immediately",
+      "python_test_script": "def test_tc_gw_ovr_imm_004_rapid_decrease(can_bus):\n    msgs = collect_warning_messages(can_bus, 2.0)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES\n    states = [decode_overspeed_warning(m.data) for m in msgs]\n    assert states[-1] == 0"
+    },
+    {
+      "test_case_id": "TC-GW-OVR-IMM-005",
+      "title": "Verify immediate update during fluctuating speed around threshold",
+      "precondition": "Ignition ON; Speed fluctuates around threshold; Monitor CAN ID 0xD2",
+      "steps": [
+        "Alternate speed slightly below and above threshold",
+        "Capture GW_Warnings for 4 seconds",
+        "Decode OverspeedWarning transitions"
+      ],
+      "expected_result": "OverspeedWarning updates immediately according to latest speed condition",
+      "python_test_script": "def test_tc_gw_ovr_imm_005_fluctuating_speed(can_bus):\n    msgs = collect_warning_messages(can_bus, 4.0)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES\n    states = [decode_overspeed_warning(m.data) for m in msgs]\n    assert 0 in states and 1 in states"
+    },
+    {
+      "test_case_id": "TC-GW-OVR-IMM-006",
+      "title": "Verify no redundant immediate transmission when status unchanged",
+      "precondition": "Ignition ON; VehicleSpeed continuously above threshold; Monitor CAN ID 0xD2",
+      "steps": [
+        "Maintain speed above threshold",
+        "Capture GW_Warnings for 3 seconds",
+        "Evaluate OverspeedWarning consistency"
+      ],
+      "expected_result": "No additional transition events; OverspeedWarning remains 1",
+      "python_test_script": "def test_tc_gw_ovr_imm_006_no_redundant_transmission(can_bus):\n    msgs = collect_warning_messages(can_bus, 3.0)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES\n    states = {decode_overspeed_warning(m.data) for m in msgs}\n    assert len(states) == 1"
+    }
+  ]
+}

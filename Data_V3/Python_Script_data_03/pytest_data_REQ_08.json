@@ -1,0 +1,148 @@
+{
+  "requirement": {
+    "requirement_id": "GW-REQ-03",
+    "description": "When one or more door open indications are detected from the body controller, the gateway shall immediately transmit a consolidated door-open status indicating whether any vehicle door is open.",
+    "can_message": {
+      "node": "Gateway",
+      "arbitration_id": "0x384",
+      "message_name": "GW_System_Overview",
+      "signals": [
+        {
+          "name": "GWS_Any_Door_Open",
+          "start_bit": 0,
+          "length": 1,
+          "byte_order": "little_endian",
+          "values": {
+            "0": "No vehicle door open",
+            "1": "At least one vehicle door open"
+          }
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-DOOR-001",
+      "test_objective": "Verify GWS_Any_Door_Open is 0 when all vehicle doors are closed.",
+      "preconditions": [
+        "Ignition ON",
+        "All vehicle doors closed",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Start vehicle ignition",
+        "Ensure all doors are closed",
+        "Monitor CAN ID 0x384",
+        "Extract GWS_Any_Door_Open"
+      ],
+      "expected_result": "GWS_Any_Door_Open = 0",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_door_001_all_closed(can_bus):\n    msgs = collect_messages(can_bus, GW_SYSTEM_OVERVIEW_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_gws_any_door_open(msg) == 0"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-002",
+      "test_objective": "Verify GWS_Any_Door_Open is 1 when front-left door is open.",
+      "preconditions": [
+        "Ignition ON",
+        "Front-left door open",
+        "Other doors closed"
+      ],
+      "test_steps": [
+        "Start ignition",
+        "Open front-left door",
+        "Monitor GW_System_Overview message",
+        "Decode GWS_Any_Door_Open"
+      ],
+      "expected_result": "GWS_Any_Door_Open = 1",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_door_002_front_left_open(can_bus):\n    msgs = collect_messages(can_bus, GW_SYSTEM_OVERVIEW_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_gws_any_door_open(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-003",
+      "test_objective": "Verify GWS_Any_Door_Open is 1 when front-right door is open.",
+      "preconditions": [
+        "Ignition ON",
+        "Front-right door open"
+      ],
+      "test_steps": [
+        "Start ignition",
+        "Open front-right door",
+        "Monitor GW_System_Overview message",
+        "Decode GWS_Any_Door_Open"
+      ],
+      "expected_result": "GWS_Any_Door_Open = 1",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_door_003_front_right_open(can_bus):\n    msgs = collect_messages(can_bus, GW_SYSTEM_OVERVIEW_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_gws_any_door_open(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-004",
+      "test_objective": "Verify GWS_Any_Door_Open is 1 when rear-left door is open.",
+      "preconditions": [
+        "Ignition ON",
+        "Rear-left door open"
+      ],
+      "test_steps": [
+        "Start ignition",
+        "Open rear-left door",
+        "Capture GW_System_Overview message",
+        "Extract GWS_Any_Door_Open"
+      ],
+      "expected_result": "GWS_Any_Door_Open = 1",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_door_004_rear_left_open(can_bus):\n    msgs = collect_messages(can_bus, GW_SYSTEM_OVERVIEW_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_gws_any_door_open(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-005",
+      "test_objective": "Verify GWS_Any_Door_Open is 1 when rear-right door is open.",
+      "preconditions": [
+        "Ignition ON",
+        "Rear-right door open"
+      ],
+      "test_steps": [
+        "Start ignition",
+        "Open rear-right door",
+        "Monitor GW_System_Overview message",
+        "Decode GWS_Any_Door_Open"
+      ],
+      "expected_result": "GWS_Any_Door_Open = 1",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_door_005_rear_right_open(can_bus):\n    msgs = collect_messages(can_bus, GW_SYSTEM_OVERVIEW_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_gws_any_door_open(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-006",
+      "test_objective": "Verify GWS_Any_Door_Open remains 1 when multiple doors are open.",
+      "preconditions": [
+        "Ignition ON",
+        "Multiple vehicle doors open"
+      ],
+      "test_steps": [
+        "Start ignition",
+        "Open more than one door",
+        "Monitor GW_System_Overview message",
+        "Extract GWS_Any_Door_Open"
+      ],
+      "expected_result": "GWS_Any_Door_Open = 1",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_door_006_multiple_doors_open(can_bus):\n    msgs = collect_messages(can_bus, GW_SYSTEM_OVERVIEW_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_gws_any_door_open(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-DOOR-007",
+      "test_objective": "Verify hood or tailgate open does not set GWS_Any_Door_Open.",
+      "preconditions": [
+        "Ignition ON",
+        "All vehicle doors closed",
+        "Hood or tailgate open"
+      ],
+      "test_steps": [
+        "Start ignition",
+        "Open hood or tailgate only",
+        "Monitor GW_System_Overview message",
+        "Decode GWS_Any_Door_Open"
+      ],
+      "expected_result": "GWS_Any_Door_Open = 0",
+      "test_type": "Negative",
+      "python_test_script": "def test_tc_gw_door_007_hood_tailgate_only(can_bus):\n    msgs = collect_messages(can_bus, GW_SYSTEM_OVERVIEW_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_gws_any_door_open(msg) == 0"
+    }
+  ]
+}

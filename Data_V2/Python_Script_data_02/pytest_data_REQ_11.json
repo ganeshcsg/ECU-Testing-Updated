@@ -1,0 +1,108 @@
+{
+  "requirement": {
+    "requirement_id": "TCM-REQ-03",
+    "description": "The transmission controller shall periodically indicate the clutch engagement state to the gateway ECU.",
+    "can_message": {
+      "node": "TCM",
+      "arbitration_id": "0x230",
+      "message_name": "TCM_Gear_Status",
+      "dlc": 8,
+      "signals": [
+        {
+          "name": "TCM_Clutch_Engaged",
+          "start_bit": 5,
+          "length": 1,
+          "byte_order": "little_endian",
+          "values": {
+            "0": "Disengaged",
+            "1": "Engaged"
+          }
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-TCM-CLUTCH-001",
+      "test_objective": "Verify signal is 0 when clutch is disengaged.",
+      "preconditions": [
+        "Ignition ON",
+        "Clutch released (pedal up / actuator open)",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Ensure clutch is released",
+        "Monitor CAN ID 0x230",
+        "Extract Bit 5 (TCM_Clutch_Engaged)"
+      ],
+      "expected_result": "TCM_Clutch_Engaged = 0 (Disengaged)",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_tcm_clutch_001(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_clutch(msg) == 0"
+    },
+    {
+      "test_case_id": "TC-TCM-CLUTCH-002",
+      "test_objective": "Verify signal is 1 when clutch is engaged.",
+      "preconditions": [
+        "Ignition ON",
+        "Clutch pedal fully pressed / actuator closed"
+      ],
+      "test_steps": [
+        "Press clutch pedal fully",
+        "Monitor CAN ID 0x230",
+        "Extract Bit 5"
+      ],
+      "expected_result": "TCM_Clutch_Engaged = 1 (Engaged)",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_tcm_clutch_002(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_clutch(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-TCM-CLUTCH-003",
+      "test_objective": "Verify clutch state transition during an active gear shift.",
+      "preconditions": [
+        "Ignition ON",
+        "Transmission ready for gear shift"
+      ],
+      "test_steps": [
+        "Initiate gear shift",
+        "Monitor CAN ID 0x230",
+        "Observe Bit 5 transitions"
+      ],
+      "expected_result": "Signal transitions to 1 during the physical gear change",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_tcm_clutch_003(can_bus):\n    msgs = [decode_clutch(can_bus.recv()) for _ in range(10)]\n    assert 1 in msgs"
+    },
+    {
+      "test_case_id": "TC-TCM-CLUTCH-004",
+      "test_objective": "Verify periodic transmission (heartbeat).",
+      "preconditions": [
+        "Ignition ON",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Monitor CAN bus for 2 seconds",
+        "Count number of 0x230 frames received"
+      ],
+      "expected_result": "Periodic messages received without loss",
+      "test_type": "Timing",
+      "python_test_script": "def test_tc_tcm_clutch_004(can_bus):\n    count = 0\n    start = time.time()\n    while time.time() - start < 2:\n        if can_bus.recv(0.1).arbitration_id == 0x230: count += 1\n    assert count > 1"
+    },
+    {
+      "test_case_id": "TC-TCM-CLUTCH-005",
+      "test_objective": "Verify return to 0 (disengaged) after shift completion.",
+      "preconditions": [
+        "Ignition ON",
+        "Gear shift completed",
+        "Clutch pedal released"
+      ],
+      "test_steps": [
+        "Complete gear shift",
+        "Release clutch pedal",
+        "Monitor CAN ID 0x230 and extract Bit 5"
+      ],
+      "expected_result": "TCM_Clutch_Engaged returns to 0 (Disengaged)",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_tcm_clutch_005(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_clutch(msg) == 0"
+    }
+  ]
+}

@@ -1,0 +1,160 @@
+{
+  "requirement": {
+    "requirement_id": "TCM-REQ-01",
+    "description": "The transmission controller shall periodically transmit the currently engaged gear position to the gateway and instrument cluster ECUs.",
+    "can_message": {
+      "node": "TCM",
+      "arbitration_id": "0x230",
+      "message_name": "TCM_Gear_Status",
+      "dlc": 8,
+      "signals": [
+        {
+          "name": "TCM_Current_Gear",
+          "start_bit": 0,
+          "length": 4,
+          "byte_order": "little_endian",
+          "values": {
+            "0": "NEUTRAL",
+            "1": "GEAR_1",
+            "2": "GEAR_2",
+            "3": "GEAR_3",
+            "4": "GEAR_4",
+            "5": "GEAR_5",
+            "6": "GEAR_6"
+          }
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-TCM-GEAR-001",
+      "test_objective": "Verify transmission of NEUTRAL gear position.",
+      "preconditions": [
+        "Ignition ON",
+        "TCM powered ON",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Set transmission to NEUTRAL",
+        "Monitor CAN ID 0x230",
+        "Decode TCM_Current_Gear signal"
+      ],
+      "expected_result": "Signal value = 0 (NEUTRAL)",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_tcm_gear_001(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_gear(msg) == 0"
+    },
+    {
+      "test_case_id": "TC-TCM-GEAR-002",
+      "test_objective": "Verify transmission of Gear 1.",
+      "preconditions": [
+        "Ignition ON",
+        "Transmission engaged to Gear 1"
+      ],
+      "test_steps": [
+        "Engage Gear 1",
+        "Capture CAN message 0x230",
+        "Decode gear value"
+      ],
+      "expected_result": "Signal value = 1 (GEAR_1)",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_tcm_gear_002(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_gear(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-TCM-GEAR-003",
+      "test_objective": "Verify transmission of Gear 2.",
+      "preconditions": [
+        "Ignition ON",
+        "Transmission engaged to Gear 2"
+      ],
+      "test_steps": [
+        "Engage Gear 2",
+        "Monitor CAN ID 0x230",
+        "Decode TCM_Current_Gear"
+      ],
+      "expected_result": "Signal value = 2 (GEAR_2)",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_tcm_gear_003(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_gear(msg) == 2"
+    },
+    {
+      "test_case_id": "TC-TCM-GEAR-004",
+      "test_objective": "Verify transmission of Gear 3.",
+      "preconditions": [
+        "Ignition ON",
+        "Transmission engaged to Gear 3"
+      ],
+      "test_steps": [
+        "Engage Gear 3",
+        "Capture CAN message",
+        "Decode gear signal"
+      ],
+      "expected_result": "Signal value = 3 (GEAR_3)",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_tcm_gear_004(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_gear(msg) == 3"
+    },
+    {
+      "test_case_id": "TC-TCM-GEAR-005",
+      "test_objective": "Verify transmission of Gear 4.",
+      "preconditions": [
+        "Ignition ON",
+        "Transmission engaged to Gear 4"
+      ],
+      "test_steps": [
+        "Engage Gear 4",
+        "Monitor CAN ID 0x230",
+        "Decode gear value"
+      ],
+      "expected_result": "Signal value = 4 (GEAR_4)",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_tcm_gear_005(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_gear(msg) == 4"
+    },
+    {
+      "test_case_id": "TC-TCM-GEAR-006",
+      "test_objective": "Verify transmission of Gear 5.",
+      "preconditions": [
+        "Ignition ON",
+        "Transmission engaged to Gear 5"
+      ],
+      "test_steps": [
+        "Engage Gear 5",
+        "Capture CAN frame",
+        "Decode TCM_Current_Gear"
+      ],
+      "expected_result": "Signal value = 5 (GEAR_5)",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_tcm_gear_006(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_gear(msg) == 5"
+    },
+    {
+      "test_case_id": "TC-TCM-GEAR-007",
+      "test_objective": "Verify transmission of Gear 6.",
+      "preconditions": [
+        "Ignition ON",
+        "Transmission engaged to Gear 6"
+      ],
+      "test_steps": [
+        "Engage Gear 6",
+        "Monitor CAN ID 0x230",
+        "Decode gear signal"
+      ],
+      "expected_result": "Signal value = 6 (GEAR_6)",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_tcm_gear_007(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_gear(msg) == 6"
+    },
+    {
+      "test_case_id": "TC-TCM-GEAR-008",
+      "test_objective": "Verify periodic transmission timing of gear status.",
+      "preconditions": [
+        "Ignition ON",
+        "Transmission in stable gear state"
+      ],
+      "test_steps": [
+        "Monitor CAN ID 0x230 for 2 seconds",
+        "Count received gear status frames"
+      ],
+      "expected_result": "Message transmitted periodically with minimum 2 frames in 2 seconds",
+      "test_type": "Timing",
+      "python_test_script": "def test_tc_tcm_gear_008(can_bus):\n    msgs = []\n    start = time.time()\n    while time.time() - start < 2.0:\n        m = can_bus.recv(0.1)\n        if m and m.arbitration_id == TCM_GEAR_STATUS_ID:\n            msgs.append(m)\n    assert len(msgs) >= 2"
+    }
+  ]
+}

@@ -1,0 +1,503 @@
+{
+  "DBC_outout_after_parsing": {
+    "version": "Gateway ECU v.07",
+    "nodes": [
+      "GatewayECU",
+      "InstrumentCluster",
+      "PowertrainECU",
+      "DiagnosticECU",
+      "CameraECU"
+    ],
+    "messages": [
+      {
+        "frame_id": 256,
+        "name": "GW_OperationalPresence",
+        "length": 8,
+        "senders": ["GatewayECU"],
+        "signals": [
+          {
+            "name": "GW_AliveCounter",
+            "start": 0,
+            "length": 8,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 255,
+            "unit": "",
+            "receivers": ["InstrumentCluster"]
+          },
+          {
+            "name": "GW_Status",
+            "start": 8,
+            "length": 8,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["InstrumentCluster"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 257,
+        "name": "GW_IgnitionStatus",
+        "length": 8,
+        "senders": ["GatewayECU"],
+        "signals": [
+          {
+            "name": "IgnitionState",
+            "start": 0,
+            "length": 2,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 3,
+            "unit": "",
+            "receivers": ["InstrumentCluster"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 258,
+        "name": "GW_VehicleSpeed",
+        "length": 8,
+        "senders": ["GatewayECU"],
+        "signals": [
+          {
+            "name": "VehicleSpeed",
+            "start": 0,
+            "length": 16,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 0.01,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 250,
+            "unit": "km/h",
+            "receivers": ["InstrumentCluster"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 259,
+        "name": "GW_BatteryVoltage",
+        "length": 8,
+        "senders": ["GatewayECU"],
+        "signals": [
+          {
+            "name": "BatteryVoltage",
+            "start": 0,
+            "length": 16,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 0.01,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 20,
+            "unit": "V",
+            "receivers": ["DiagnosticECU"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 260,
+        "name": "GW_SoftwareVersion",
+        "length": 8,
+        "senders": ["GatewayECU"],
+        "signals": [
+          {
+            "name": "SW_Major",
+            "start": 0,
+            "length": 8,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 255,
+            "unit": "",
+            "receivers": ["DiagnosticECU"]
+          },
+          {
+            "name": "SW_Minor",
+            "start": 8,
+            "length": 8,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 255,
+            "unit": "",
+            "receivers": ["DiagnosticECU"]
+          },
+          {
+            "name": "SW_Patch",
+            "start": 16,
+            "length": 8,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 255,
+            "unit": "",
+            "receivers": ["DiagnosticECU"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 270,
+        "name": "GW_DoorStatus",
+        "length": 8,
+        "senders": ["GatewayECU"],
+        "signals": [
+          {
+            "name": "Door_FL",
+            "start": 0,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["InstrumentCluster"]
+          },
+          {
+            "name": "Door_FR",
+            "start": 1,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["InstrumentCluster"]
+          },
+          {
+            "name": "Door_RL",
+            "start": 2,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["InstrumentCluster"]
+          },
+          {
+            "name": "Door_RR",
+            "start": 3,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["InstrumentCluster"]
+          },
+          {
+            "name": "AnyDoorOpen",
+            "start": 4,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["InstrumentCluster"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 271,
+        "name": "GW_ExteriorLighting",
+        "length": 8,
+        "senders": ["GatewayECU"],
+        "signals": [
+          {
+            "name": "HeadlampStatus",
+            "start": 0,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["InstrumentCluster"]
+          },
+          {
+            "name": "TailLampStatus",
+            "start": 1,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["InstrumentCluster"]
+          },
+          {
+            "name": "HazardStatus",
+            "start": 2,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["InstrumentCluster"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 272,
+        "name": "GW_BrakeWarning",
+        "length": 8,
+        "senders": ["GatewayECU"],
+        "signals": [
+          {
+            "name": "BrakeWarningActive",
+            "start": 0,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["InstrumentCluster"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 273,
+        "name": "GW_ReverseGear",
+        "length": 8,
+        "senders": ["GatewayECU"],
+        "signals": [
+          {
+            "name": "ReverseActive",
+            "start": 0,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["CameraECU"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 280,
+        "name": "GW_FaultStatus",
+        "length": 8,
+        "senders": ["GatewayECU"],
+        "signals": [
+          {
+            "name": "DoorSignalTimeout",
+            "start": 0,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["InstrumentCluster"]
+          },
+          {
+            "name": "SpeedSignalTimeout",
+            "start": 1,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["InstrumentCluster"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 281,
+        "name": "GW_SafetyMessage",
+        "length": 8,
+        "senders": ["GatewayECU"],
+        "signals": [
+          {
+            "name": "SafetyData",
+            "start": 0,
+            "length": 32,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 4294967295,
+            "unit": "",
+            "receivers": ["InstrumentCluster"]
+          },
+          {
+            "name": "MsgCounter",
+            "start": 32,
+            "length": 4,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 15,
+            "unit": "",
+            "receivers": ["InstrumentCluster"]
+          },
+          {
+            "name": "CRC",
+            "start": 40,
+            "length": 8,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 255,
+            "unit": "",
+            "receivers": ["InstrumentCluster"]
+          }
+        ]
+      }
+    ]
+  },
+  
+  "requirements": [
+
+    {
+      "requirement_id": "S-01",
+      "requirement_text": "The gateway shall periodically transmit an operational presence message on the CAN bus to indicate that it is active and functioning.",
+      "capl_script": "/* S-01 */\nvariables\n{\n  msTimer aliveTimer;\n}\n\non start\n{\n  setTimer(aliveTimer, 1000);\n}\n\non timer aliveTimer\n{\n  message GW_Alive aliveMsg;\n  aliveMsg.AliveCounter++;\n  output(aliveMsg);\n  setTimer(aliveTimer, 1000);\n}"
+    },
+
+    {
+      "requirement_id": "S-02",
+      "requirement_text": "The gateway shall forward the vehicle ignition status to the instrument cluster without modification.",
+      "capl_script": "/* S-02 */\non message BCM_IgnitionStatus\n{\n  message GW_IgnitionStatus gwMsg;\n  gwMsg.IgnitionState = this.IgnitionState;\n  output(gwMsg);\n}"
+    },
+
+    {
+      "requirement_id": "S-03",
+      "requirement_text": "The gateway shall forward the vehicle speed signal received from the powertrain ECU to the instrument cluster.",
+      "capl_script": "/* S-03 */\non message PT_VehicleSpeed\n{\n  message GW_VehicleStatus gwMsg;\n  gwMsg.VehicleSpeed = this.VehicleSpeed;\n  output(gwMsg);\n}"
+    },
+
+    {
+      "requirement_id": "S-04",
+      "requirement_text": "The gateway shall transmit the current battery voltage to the diagnostic network at a fixed interval.",
+      "capl_script": "/* S-04 */\nvariables\n{\n  msTimer batteryTimer;\n  float lastBatteryVoltage = 12.0;\n}\n\non start\n{\n  setTimer(batteryTimer, 500);\n}\n\non message BCM_BatteryStatus\n{\n  lastBatteryVoltage = this.BatteryVoltage;\n}\n\non timer batteryTimer\n{\n  message GW_DiagBatteryStatus msg;\n  msg.BatteryVoltage = lastBatteryVoltage;\n  output(msg);\n  setTimer(batteryTimer, 500);\n}"
+    },
+
+    {
+      "requirement_id": "S-05",
+      "requirement_text": "The gateway shall transmit its software version information upon network startup.",
+      "capl_script": "/* S-05 */\non start\n{\n  message GW_SoftwareInfo swMsg;\n  swMsg.Major = 1;\n  swMsg.Minor = 0;\n  swMsg.Patch = 3;\n  output(swMsg);\n}"
+    },
+    {
+      "requirement_id": "M-01",
+      "requirement_text": "The gateway shall aggregate individual door open/close signals and transmit a consolidated door status to the instrument cluster.",
+      "capl_script": "/* M-01 */\nvariables\n{\n  int doorStatus;\n}\n\non message BCM_DoorStatus\n{\n  doorStatus = (this.DriverDoor || this.PassengerDoor || this.RearLeftDoor || this.RearRightDoor);\n  message GW_DoorStatus msg;\n  msg.AnyDoorOpen = doorStatus;\n  output(msg);\n}"
+    },
+
+    {
+      "requirement_id": "M-02",
+      "requirement_text": "The gateway shall combine headlamp, tail lamp, and hazard lamp requests and transmit a consolidated exterior lighting status.",
+      "capl_script": "/* M-02 */\non message BCM_LightingStatus\n{\n  int lightingActive = (this.Headlamp || this.TailLamp || this.HazardLamp);\n  message GW_ExteriorLighting msg;\n  msg.LightingActive = lightingActive;\n  output(msg);\n}"
+    },
+
+    {
+      "requirement_id": "M-03",
+      "requirement_text": "The gateway shall immediately forward the brake warning signal when it becomes active.",
+      "capl_script": "/* M-03 */\nvariables\n{\n  int prevBrakeState = 0;\n}\n\non message BCM_BrakeStatus\n{\n  if (this.BrakeWarning == 1 && prevBrakeState == 0)\n  {\n    message GW_BrakeWarning msg;\n    msg.BrakeWarning = 1;\n    output(msg);\n  }\n  prevBrakeState = this.BrakeWarning;\n}"
+    },
+
+    {
+      "requirement_id": "M-04",
+      "requirement_text": "The gateway shall transmit a reverse gear indication to the rear camera ECU when reverse gear is engaged.",
+      "capl_script": "/* M-04 */\non message TCU_GearStatus\n{\n  if (this.GearPosition == 7) /* Reverse */\n  {\n    message GW_ReverseIndication msg;\n    msg.ReverseActive = 1;\n    output(msg);\n  }\n}"
+    },
+
+    {
+      "requirement_id": "M-05",
+      "requirement_text": "The gateway shall transmit a wake-up indication to all connected networks upon ignition ON.",
+      "capl_script": "/* M-05 */\nvariables\n{\n  int prevIgnition = 0;\n}\n\non message BCM_IgnitionStatus\n{\n  if (this.IgnitionState == 1 && prevIgnition == 0)\n  {\n    message GW_Wakeup msg;\n    msg.WakeupRequest = 1;\n    output(msg);\n  }\n  prevIgnition = this.IgnitionState;\n}"
+    },
+    {
+      "requirement_id": "C-01",
+      "requirement_text": "If any critical input signal is not updated within its configured timeout, the gateway shall set a timeout fault flag.",
+      "capl_script": "/* C-01 */\nvariables\n{\n  msTimer speedTimeoutTimer;\n}\n\non start\n{\n  setTimer(speedTimeoutTimer, 1000);\n}\n\non message PT_VehicleSpeed\n{\n  setTimer(speedTimeoutTimer, 1000);\n}\n\non timer speedTimeoutTimer\n{\n  message GW_FaultStatus msg;\n  msg.SpeedTimeoutFault = 1;\n  output(msg);\n}"
+    },
+
+    {
+      "requirement_id": "C-02",
+      "requirement_text": "If door status information is unavailable, the gateway shall transmit a door warning indication to the instrument cluster.",
+      "capl_script": "/* C-02 */\non timer doorTimeout\n{\n  message GW_Warnings msg;\n  msg.DoorWarning = 1;\n  output(msg);\n}"
+    },
+
+    {
+      "requirement_id": "C-03",
+      "requirement_text": "Upon ignition OFF, the gateway shall stop all non-essential CAN transmissions after a configurable delay.",
+      "capl_script": "/* C-03 */\nvariables\n{\n  msTimer shutdownTimer;\n}\n\non message BCM_IgnitionStatus\n{\n  if (this.IgnitionState == 0)\n    setTimer(shutdownTimer, 2000);\n}\n\non timer shutdownTimer\n{\n  cancelTimer(shutdownTimer);\n  /* Stop non-essential transmissions */\n}"
+    },
+
+    {
+      "requirement_id": "C-04",
+      "requirement_text": "The gateway shall increment a rolling message counter for all cyclic safety-related messages.",
+      "capl_script": "/* C-04 */\nvariables\n{\n  msTimer safetyTimer;\n  byte counter = 0;\n}\n\non start\n{\n  setTimer(safetyTimer, 100);\n}\n\non timer safetyTimer\n{\n  message GW_SafetyMessage msg;\n  msg.Counter = counter++;\n  output(msg);\n  setTimer(safetyTimer, 100);\n}"
+    },
+
+    {
+      "requirement_id": "C-05",
+      "requirement_text": "The gateway shall append a CRC to safety-critical messages and reject incoming messages with invalid CRC.",
+      "capl_script": "/* C-05 */\nbyte calculateCRC(message msg)\n{\n  byte crc = 0;\n  int i;\n  for (i = 0; i < msg.dlc-1; i++)\n    crc ^= msg.byte(i);\n  return crc;\n}\n\non message Safety_Input\n{\n  if (this.CRC != calculateCRC(this))\n  {\n    write(\"Invalid CRC detected. Message rejected.\");\n    return;\n  }\n}"
+    }
+
+  ]
+}

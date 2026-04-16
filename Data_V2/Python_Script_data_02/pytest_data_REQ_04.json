@@ -1,0 +1,90 @@
+{
+  "requirement": {
+    "requirement_id": "BCM-REQ-04",
+    "description": "When the hood or rear tailgate state changes, the body controller shall immediately publish the updated compartment open status to the gateway ECU.",
+    "can_message": {
+      "node": "BCM",
+      "arbitration_id": "0x300",
+      "message_name": "BCM_Body_State",
+      "dlc": 8,
+      "signals": [
+        {
+          "name": "Bdy_Hood_Open",
+          "start_bit": 6,
+          "length": 1,
+          "values": { "0": "Closed", "1": "Open" }
+        },
+        {
+          "name": "Bdy_Tailgate_Open",
+          "start_bit": 7,
+          "length": 1,
+          "values": { "0": "Closed", "1": "Open" }
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-COMP-001",
+      "test_objective": "Verify hood closed status.",
+      "preconditions": [
+        "Ignition ON",
+        "Hood closed",
+        "CAN bus active"
+      ],
+      "test_steps": [
+        "Monitor CAN ID 0x300",
+        "Extract Bdy_Hood_Open"
+      ],
+      "expected_result": "Bdy_Hood_Open = 0",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_comp_001(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert get_hood(msg.data) == 0"
+    },
+    {
+      "test_case_id": "TC-COMP-002",
+      "test_objective": "Verify hood open status.",
+      "preconditions": [
+        "Ignition ON",
+        "Hood open"
+      ],
+      "test_steps": [
+        "Open hood",
+        "Capture next CAN frame"
+      ],
+      "expected_result": "Bdy_Hood_Open = 1",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_comp_002(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert get_hood(msg.data) == 1"
+    },
+    {
+      "test_case_id": "TC-COMP-005",
+      "test_objective": "Verify immediate hood Closed → Open transition.",
+      "preconditions": [
+        "Ignition ON",
+        "Hood initially closed"
+      ],
+      "test_steps": [
+        "Open hood",
+        "Capture next CAN frame"
+      ],
+      "expected_result": "Bdy_Hood_Open changes from 0 to 1 in next frame",
+      "test_type": "Timing",
+      "python_test_script": "def test_tc_comp_005(can_bus):\n    pre = can_bus.recv(timeout=1.0)\n    post = can_bus.recv(timeout=1.0)\n    assert get_hood(pre.data) == 0 and get_hood(post.data) == 1"
+    },
+    {
+      "test_case_id": "TC-COMP-007",
+      "test_objective": "Verify tailgate Closed → Open transition.",
+      "preconditions": [
+        "Ignition ON",
+        "Tailgate initially closed"
+      ],
+      "test_steps": [
+        "Open tailgate",
+        "Capture next CAN frame"
+      ],
+      "expected_result": "Bdy_Tailgate_Open changes from 0 to 1",
+      "test_type": "Timing",
+      "python_test_script": "def test_tc_comp_007(can_bus):\n    pre = can_bus.recv(timeout=1.0)\n    post = can_bus.recv(timeout=1.0)\n    assert get_tailgate(pre.data) == 0 and get_tailgate(post.data) == 1"
+    }
+  ]
+}

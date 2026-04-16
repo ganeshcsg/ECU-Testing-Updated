@@ -1,0 +1,55 @@
+{
+  "requirement": {
+    "requirement_id": "ECM-REQ-02",
+    "description": "The engine controller shall periodically transmit the current engine rotational speed value to the gateway and instrument cluster ECUs.",
+    "can_message": {
+      "node": "ECM",
+      "arbitration_id": "0x208",
+      "message_name": "ECM_Powertrain_Data",
+      "dlc": 8,
+      "signals": [
+        {
+          "name": "ECM_Engine_Speed",
+          "start_bit": 16,
+          "length": 16,
+          "scale": 0.25,
+          "unit": "rpm",
+          "range": "0–9000"
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-ECM-ENG-003",
+      "test_objective": "Verify engine speed at idle.",
+      "preconditions": [
+        "Ignition ON",
+        "Engine running at idle"
+      ],
+      "test_steps": [
+        "Capture ECM_Powertrain_Data frames",
+        "Decode engine speed"
+      ],
+      "expected_result": "RPM between 600 and 1000",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_ecm_eng_003(can_bus):\n    for _ in range(10):\n        msg = can_bus.recv(timeout=0.5)\n        assert 600 <= decode_engine_speed(msg.data) <= 1000"
+    },
+    {
+      "test_case_id": "TC-ECM-ENG-007",
+      "test_objective": "Verify upper RPM boundary.",
+      "preconditions": [
+        "Ignition ON",
+        "Engine speed increased toward redline"
+      ],
+      "test_steps": [
+        "Monitor CAN ID 0x208",
+        "Decode engine speed"
+      ],
+      "expected_result": "RPM does not exceed 9000",
+      "test_type": "Boundary",
+      "python_test_script": "def test_tc_ecm_eng_007(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_engine_speed(msg.data) <= 9000"
+    }
+  ]
+}

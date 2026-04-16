@@ -1,0 +1,144 @@
+{
+  "requirement": {
+    "requirement_id": "S-04",
+    "description": "The gateway shall transmit the current battery voltage to the diagnostic network at a fixed interval.",
+    "can_messages": [
+      {
+        "node": "Gateway",
+        "arbitration_id": "0x103",
+        "message_name": "GW_BatteryVoltage",
+        "signals": [
+          {
+            "signal": "BatteryVoltage",
+            "start_bit": 0,
+            "length": 16,
+            "byte": "0-1",
+            "factor": 0.01,
+            "offset": 0,
+            "unit": "V"
+          }
+        ],
+        "dlc": 8
+      }
+    ],
+    "python_test_setup": "import os\nimport time\nimport pytest\nimport can\n\nGW_BATTERY_VOLTAGE_ID = 0x103\nGW_BATTERY_VOLTAGE_DLC = 8\n\n@pytest.fixture(scope=\"module\")\ndef can_bus():\n    bus = can.interface.Bus(\n        interface=os.getenv('CAN_INTERFACE', 'vector'),\n        channel=os.getenv('CAN_CHANNEL', 0),\n        bitrate=500000\n    )\n    yield bus\n    bus.shutdown()\n\ndef collect_gw_messages(bus, duration_sec=1.0):\n    msgs = []\n    start = time.time()\n    while time.time() - start < duration_sec:\n        msg = bus.recv(timeout=0.2)\n        if msg and msg.arbitration_id == GW_BATTERY_VOLTAGE_ID:\n            msgs.append(msg)\n    return msgs\n\ndef get_battery_voltage_volts(data_bytes: bytes) -> float:\n    raw = data_bytes[0] | (data_bytes[1] << 8)\n    return raw * 0.01"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-BATT-001",
+      "title": "Verify GW_BatteryVoltage message is transmitted",
+      "precondition": "Ignition ON; Gateway ECU powered; Monitor CAN ID 0x103",
+      "steps": [
+        "Switch ignition ON",
+        "Allow Gateway to boot",
+        "Monitor CAN bus"
+      ],
+      "expected_result": "GW_BatteryVoltage message present on CAN bus",
+      "python_test_script": "def test_tc_gw_batt_001_present(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert msgs, 'GW_BatteryVoltage not detected'"
+    },
+    {
+      "test_case_id": "TC-GW-BATT-002",
+      "title": "Verify nominal battery voltage (12.0 V) is transmitted correctly",
+      "precondition": "Ignition ON; Battery voltage set to 12.0 V",
+      "steps": [
+        "Set battery voltage to 12.0 V",
+        "Capture GW_BatteryVoltage",
+        "Extract BatteryVoltage"
+      ],
+      "expected_result": "BatteryVoltage = 12.0 V",
+      "python_test_script": "def test_tc_gw_batt_002_nominal(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert msgs\n    for msg in msgs:\n        assert get_battery_voltage_volts(msg.data) == 12.0"
+    },
+    {
+      "test_case_id": "TC-GW-BATT-003",
+      "title": "Verify low battery voltage (9.0 V) is transmitted correctly",
+      "precondition": "Ignition ON; Battery voltage set to 9.0 V",
+      "steps": [
+        "Set battery voltage to 9.0 V",
+        "Capture GW_BatteryVoltage",
+        "Extract BatteryVoltage"
+      ],
+      "expected_result": "BatteryVoltage = 9.0 V",
+      "python_test_script": "def test_tc_gw_batt_003_low(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert msgs\n    for msg in msgs:\n        assert get_battery_voltage_volts(msg.data) == 9.0"
+    },
+    {
+      "test_case_id": "TC-GW-BATT-004",
+      "title": "Verify high battery voltage (15.0 V) is transmitted correctly",
+      "precondition": "Ignition ON; Battery voltage set to 15.0 V",
+      "steps": [
+        "Set battery voltage to 15.0 V",
+        "Capture GW_BatteryVoltage",
+        "Extract BatteryVoltage"
+      ],
+      "expected_result": "BatteryVoltage = 15.0 V",
+      "python_test_script": "def test_tc_gw_batt_004_high(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert msgs\n    for msg in msgs:\n        assert get_battery_voltage_volts(msg.data) == 15.0"
+    },
+    {
+      "test_case_id": "TC-GW-BATT-005",
+      "title": "Verify maximum battery voltage (20.0 V) is transmitted correctly",
+      "precondition": "Ignition ON; Battery voltage set to 20.0 V",
+      "steps": [
+        "Set battery voltage to 20.0 V",
+        "Capture GW_BatteryVoltage",
+        "Extract BatteryVoltage"
+      ],
+      "expected_result": "BatteryVoltage = 20.0 V",
+      "python_test_script": "def test_tc_gw_batt_005_max(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert msgs\n    for msg in msgs:\n        assert get_battery_voltage_volts(msg.data) == 20.0"
+    },
+    {
+      "test_case_id": "TC-GW-BATT-006",
+      "title": "Verify GW_BatteryVoltage is transmitted at a fixed interval",
+      "precondition": "Ignition ON; Stable battery voltage",
+      "steps": [
+        "Capture GW_BatteryVoltage for 5 seconds",
+        "Measure time between consecutive frames"
+      ],
+      "expected_result": "GW_BatteryVoltage transmitted periodically at fixed interval",
+      "python_test_script": "def test_tc_gw_batt_006_periodic(can_bus):\n    msgs = collect_gw_messages(can_bus, 5.0)\n    assert len(msgs) >= 3"
+    },
+    {
+      "test_case_id": "TC-GW-BATT-007",
+      "title": "Verify BatteryVoltage remains constant if input voltage does not change",
+      "precondition": "Ignition ON; Battery voltage constant",
+      "steps": [
+        "Capture consecutive frames",
+        "Compare BatteryVoltage values"
+      ],
+      "expected_result": "BatteryVoltage remains constant",
+      "python_test_script": "def test_tc_gw_batt_007_constant(can_bus):\n    msgs = collect_gw_messages(can_bus, 3.0)\n    assert msgs\n    first = get_battery_voltage_volts(msgs[0].data)\n    for msg in msgs:\n        assert get_battery_voltage_volts(msg.data) == first"
+    },
+    {
+      "test_case_id": "TC-GW-BATT-008",
+      "title": "Verify GW_BatteryVoltage DLC",
+      "precondition": "Ignition ON",
+      "steps": [
+        "Capture GW_BatteryVoltage frame",
+        "Check DLC"
+      ],
+      "expected_result": "DLC = 8 bytes",
+      "python_test_script": "def test_tc_gw_batt_008_dlc(can_bus):\n    msgs = collect_gw_messages(can_bus, 2.0)\n    assert msgs\n    for msg in msgs:\n        assert msg.dlc == GW_BATTERY_VOLTAGE_DLC"
+    },
+    {
+      "test_case_id": "TC-GW-BATT-009",
+      "title": "Verify GW_BatteryVoltage stops after Gateway power OFF",
+      "precondition": "Gateway active; Ignition ON",
+      "steps": [
+        "Monitor transmission",
+        "Switch ignition OFF",
+        "Observe CAN bus"
+      ],
+      "expected_result": "GW_BatteryVoltage stops transmitting",
+      "python_test_script": "def test_tc_gw_batt_009_stop(can_bus):\n    msgs_before = collect_gw_messages(can_bus, 2.0)\n    assert msgs_before\n    time.sleep(3)\n    msgs_after = collect_gw_messages(can_bus, 2.0)\n    assert not msgs_after"
+    },
+    {
+      "test_case_id": "TC-GW-BATT-010",
+      "title": "Verify GW_BatteryVoltage resumes after restart",
+      "precondition": "Gateway powered OFF",
+      "steps": [
+        "Switch ignition ON",
+        "Monitor CAN bus"
+      ],
+      "expected_result": "GW_BatteryVoltage resumes periodic transmission",
+      "python_test_script": "def test_tc_gw_batt_010_resume(can_bus):\n    time.sleep(3)\n    msgs = collect_gw_messages(can_bus, 3.0)\n    assert msgs"
+    }
+  ]
+}

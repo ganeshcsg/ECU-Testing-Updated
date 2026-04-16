@@ -1,0 +1,144 @@
+{
+  "requirement": {
+    "requirement_id": "REQ_05",
+    "description": "The system shall periodically transmit its operational mode to the display controller at a fixed interval.",
+    "can_message": {
+      "node": "Gateway",
+      "arbitration_id": "0x2BC",
+      "message_name": "Gateway_Status",
+      "dlc": 8,
+      "signals": [
+        {
+          "name": "GatewayMode",
+          "start_bit": 0,
+          "length": 3,
+          "byte_order": "little_endian",
+          "values": {
+            "0": "Init",
+            "1": "Standby",
+            "2": "Operational",
+            "3": "Diagnostic",
+            "4": "Sleep",
+            "5-7": "Reserved"
+          }
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+
+    {
+      "test_case_id": "TC-GW-S05-001",
+      "test_objective": "Verify that the Gateway periodically transmits the GatewayMode signal on the CAN bus.",
+      "preconditions": [
+        "Ignition ON",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Start CAN capture",
+        "Monitor ID 0x2BC",
+        "Count Gateway_Status messages over time"
+      ],
+      "expected_result": "Gateway_Status messages are received periodically",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s05_001(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_STATUS, CAPTURE_TIME)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES"
+    },
+
+    {
+      "test_case_id": "TC-GW-S05-002",
+      "test_objective": "Verify GatewayMode value consistency across periodic messages.",
+      "preconditions": [
+        "Vehicle state unchanged",
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "Capture multiple Gateway_Status messages",
+        "Extract GatewayMode"
+      ],
+      "expected_result": "GatewayMode remains constant across all messages",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s05_002(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_STATUS, CAPTURE_TIME)\n    ref = decode_gateway_mode(msgs[0])\n    for m in msgs:\n        assert decode_gateway_mode(m) == ref"
+    },
+
+    {
+      "test_case_id": "TC-GW-S05-003",
+      "test_objective": "Verify fixed transmission interval of Gateway_Status.",
+      "preconditions": [
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "Capture timestamps of consecutive messages",
+        "Compute time difference"
+      ],
+      "expected_result": "Interval remains within configured tolerance",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s05_003(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_STATUS, CAPTURE_TIME)\n    ts = extract_timestamps(msgs)\n    intervals = [ts[i+1]-ts[i] for i in range(len(ts)-1)]\n    avg = sum(intervals)/len(intervals)\n    for iv in intervals:\n        assert abs(iv-avg) <= MAX_INTERVAL_TOLERANCE"
+    },
+
+    {
+      "test_case_id": "TC-GW-S05-004",
+      "test_objective": "Verify GatewayMode transmission after ignition cycle.",
+      "preconditions": [
+        "Ignition OFF → ON cycle performed"
+      ],
+      "test_steps": [
+        "Restart ignition",
+        "Monitor Gateway_Status",
+        "Extract GatewayMode"
+      ],
+      "expected_result": "GatewayMode resumes periodic transmission",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s05_004(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_STATUS, CAPTURE_TIME)\n    assert msgs\n    assert decode_gateway_mode(msgs[-1]) in range(0,8)"
+    },
+
+    {
+      "test_case_id": "TC-GW-S05-005",
+      "test_objective": "Verify GatewayMode transmission under vehicle motion.",
+      "preconditions": [
+        "Vehicle moving",
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "Drive vehicle",
+        "Monitor Gateway_Status messages",
+        "Extract GatewayMode"
+      ],
+      "expected_result": "Periodic transmission continues during motion",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s05_005(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_STATUS, CAPTURE_TIME)\n    assert msgs\n    assert decode_gateway_mode(msgs[-1]) in range(0,8)"
+    },
+
+    {
+      "test_case_id": "TC-GW-S05-006",
+      "test_objective": "Verify deterministic GatewayMode behavior.",
+      "preconditions": [
+        "Identical operating conditions"
+      ],
+      "test_steps": [
+        "Capture multiple transmissions",
+        "Compare GatewayMode values"
+      ],
+      "expected_result": "GatewayMode value deterministic for identical conditions",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s05_006(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_STATUS, CAPTURE_TIME)\n    ref = decode_gateway_mode(msgs[0])\n    for m in msgs:\n        assert decode_gateway_mode(m) == ref"
+    },
+
+    {
+      "test_case_id": "TC-GW-S05-007",
+      "test_objective": "Verify GatewayMode transmission does not stop during other CAN traffic load.",
+      "preconditions": [
+        "High CAN traffic generated via CAPL",
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "Inject additional CAN frames",
+        "Monitor Gateway_Status"
+      ],
+      "expected_result": "Gateway_Status continues periodic transmission without interruption",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s05_007(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_STATUS, CAPTURE_TIME)\n    assert len(msgs) >= EXPECTED_MIN_MESSAGES"
+    }
+
+  ]
+}

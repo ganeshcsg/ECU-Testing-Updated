@@ -1,0 +1,173 @@
+{
+  "requirement": {
+    "requirement_id": "C-03",
+    "description": "Upon ignition OFF, the gateway shall stop all non-essential CAN transmissions after a configurable delay.",
+    "can_messages": [
+      {
+        "node": "Gateway",
+        "arbitration_id": "0x10E",
+        "message_name": "GW_DoorStatus",
+        "dlc": 8
+      },
+      {
+        "node": "Gateway",
+        "arbitration_id": "0x10F",
+        "message_name": "GW_ExteriorLighting",
+        "dlc": 8
+      },
+      {
+        "node": "Gateway",
+        "arbitration_id": "0x110",
+        "message_name": "GW_BrakeWarning",
+        "dlc": 8
+      }
+    ]
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-SHUTDOWN-001",
+      "test_objective": "Verify that non-essential Gateway CAN messages are transmitted while ignition is ON.",
+      "preconditions": [
+        "Vehicle ignition ON",
+        "Gateway ECU active",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Switch ignition to ON",
+        "Monitor CAN bus for GW_DoorStatus (0x10E)",
+        "Monitor CAN bus for GW_ExteriorLighting (0x10F)",
+        "Monitor CAN bus for GW_BrakeWarning (0x110)"
+      ],
+      "expected_result": "All non-essential Gateway messages are transmitted periodically.",
+      "postconditions": [
+        "Continue CAN monitoring"
+      ],
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_shutdown_001_messages_present_ign_on(can_bus):\n    assert collect_messages(can_bus, 0x10E, 2)\n    assert collect_messages(can_bus, 0x10F, 2)\n    assert collect_messages(can_bus, 0x110, 2)"
+    },
+    {
+      "test_case_id": "TC-GW-SHUTDOWN-002",
+      "test_objective": "Verify non-essential CAN messages continue transmitting immediately after ignition OFF.",
+      "preconditions": [
+        "Gateway ECU active",
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "Switch ignition OFF",
+        "Immediately monitor CAN bus for non-essential messages"
+      ],
+      "expected_result": "Non-essential messages continue transmitting during the configured shutdown delay.",
+      "postconditions": [
+        "Continue CAN monitoring"
+      ],
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_shutdown_002_messages_during_delay(can_bus):\n    msgs = collect_messages(can_bus, 0x10E, 2)\n    assert msgs"
+    },
+    {
+      "test_case_id": "TC-GW-SHUTDOWN-003",
+      "test_objective": "Verify non-essential CAN messages stop after configured shutdown delay.",
+      "preconditions": [
+        "Ignition OFF",
+        "Shutdown delay configured in ECU"
+      ],
+      "test_steps": [
+        "Switch ignition OFF",
+        "Wait longer than configured shutdown delay",
+        "Monitor CAN bus for non-essential messages"
+      ],
+      "expected_result": "Non-essential CAN messages stop transmitting after the delay.",
+      "postconditions": [
+        "Continue CAN monitoring"
+      ],
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_shutdown_003_messages_stop_after_delay(can_bus):\n    time.sleep(5)\n    assert not collect_messages(can_bus, 0x10E, 2)"
+    },
+    {
+      "test_case_id": "TC-GW-SHUTDOWN-004",
+      "test_objective": "Verify no further GW_DoorStatus messages are transmitted after shutdown delay.",
+      "preconditions": [
+        "Ignition OFF",
+        "Shutdown delay elapsed"
+      ],
+      "test_steps": [
+        "Monitor CAN bus for GW_DoorStatus message"
+      ],
+      "expected_result": "No GW_DoorStatus messages observed.",
+      "postconditions": [
+        "Stop CAN monitoring"
+      ],
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_shutdown_004_door_status_stopped(can_bus):\n    assert not collect_messages(can_bus, 0x10E, 2)"
+    },
+    {
+      "test_case_id": "TC-GW-SHUTDOWN-005",
+      "test_objective": "Verify no further GW_ExteriorLighting messages are transmitted after shutdown delay.",
+      "preconditions": [
+        "Ignition OFF",
+        "Shutdown delay elapsed"
+      ],
+      "test_steps": [
+        "Monitor CAN bus for GW_ExteriorLighting message"
+      ],
+      "expected_result": "No GW_ExteriorLighting messages observed.",
+      "postconditions": [
+        "Stop CAN monitoring"
+      ],
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_shutdown_005_lighting_stopped(can_bus):\n    assert not collect_messages(can_bus, 0x10F, 2)"
+    },
+    {
+      "test_case_id": "TC-GW-SHUTDOWN-006",
+      "test_objective": "Verify no further GW_BrakeWarning messages are transmitted after shutdown delay.",
+      "preconditions": [
+        "Ignition OFF",
+        "Shutdown delay elapsed"
+      ],
+      "test_steps": [
+        "Monitor CAN bus for GW_BrakeWarning message"
+      ],
+      "expected_result": "No GW_BrakeWarning messages observed.",
+      "postconditions": [
+        "Stop CAN monitoring"
+      ],
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_shutdown_006_brake_warning_stopped(can_bus):\n    assert not collect_messages(can_bus, 0x110, 2)"
+    },
+    {
+      "test_case_id": "TC-GW-SHUTDOWN-007",
+      "test_objective": "Verify Gateway resumes non-essential CAN transmissions after ignition cycle.",
+      "preconditions": [
+        "Ignition OFF",
+        "Gateway ECU shut down"
+      ],
+      "test_steps": [
+        "Switch ignition ON",
+        "Monitor CAN bus for non-essential messages"
+      ],
+      "expected_result": "Non-essential Gateway messages resume transmission.",
+      "postconditions": [
+        "Stop CAN monitoring"
+      ],
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_shutdown_007_resume_after_ignition_on(can_bus):\n    time.sleep(3)\n    assert collect_messages(can_bus, 0x10E, 2)"
+    },
+    {
+      "test_case_id": "TC-GW-SHUTDOWN-008",
+      "test_objective": "Verify no CAN traffic is transmitted after shutdown when ignition remains OFF.",
+      "preconditions": [
+        "Ignition OFF",
+        "Shutdown delay elapsed"
+      ],
+      "test_steps": [
+        "Monitor CAN bus for extended duration"
+      ],
+      "expected_result": "No non-essential Gateway CAN messages observed.",
+      "postconditions": [
+        "Ignition OFF"
+      ],
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_shutdown_008_no_traffic_ign_off(can_bus):\n    time.sleep(5)\n    assert not collect_messages(can_bus, 0x10E, 2)"
+    }
+  ]
+}

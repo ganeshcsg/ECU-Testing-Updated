@@ -1,0 +1,141 @@
+{
+  "requirement": {
+    "requirement_id": "IC-REQ-02",
+    "description": "When the driver changes the turn indicator stalk position, the instrument cluster shall immediately transmit the requested indicator direction to the gateway ECU.",
+    "can_message": {
+      "node": "IC",
+      "arbitration_id": "0x384",
+      "message_name": "GW_System_Overview",
+      "dlc": 8,
+      "signals": [
+        {
+          "name": "GWS_Indicator_State",
+          "start_bit": 28,
+          "length": 2,
+          "byte_order": "little_endian",
+          "values": {
+            "0": "OFF",
+            "1": "LEFT",
+            "2": "RIGHT",
+            "3": "HAZARD"
+          }
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-IC-IND-001",
+      "test_objective": "Verify LEFT indicator request (Value = 1).",
+      "preconditions": [
+        "Ignition ON",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Move stalk to LEFT",
+        "Monitor CAN ID 0x384",
+        "Decode Bits 28-29 (GWS_Indicator_State)"
+      ],
+      "expected_result": "GWS_Indicator_State = 1",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_ic_ind_001(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_indicator(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-IC-IND-002",
+      "test_objective": "Verify RIGHT indicator request (Value = 2).",
+      "preconditions": [
+        "Ignition ON",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Move stalk to RIGHT",
+        "Monitor CAN ID 0x384",
+        "Decode Bits 28-29"
+      ],
+      "expected_result": "GWS_Indicator_State = 2",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_ic_ind_002(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_indicator(msg) == 2"
+    },
+    {
+      "test_case_id": "TC-IC-IND-003",
+      "test_objective": "Verify HAZARD request (Value = 3).",
+      "preconditions": [
+        "Ignition ON",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Activate Hazard switch",
+        "Monitor CAN ID 0x384",
+        "Decode Bits 28-29"
+      ],
+      "expected_result": "GWS_Indicator_State = 3",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_ic_ind_003(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_indicator(msg) == 3"
+    },
+    {
+      "test_case_id": "TC-IC-IND-004",
+      "test_objective": "Verify OFF state when cancelled.",
+      "preconditions": [
+        "Ignition ON",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Return stalk to neutral",
+        "Monitor CAN ID 0x384",
+        "Decode Bits 28-29"
+      ],
+      "expected_result": "GWS_Indicator_State = 0",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_ic_ind_004(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_indicator(msg) == 0"
+    },
+    {
+      "test_case_id": "TC-IC-IND-005",
+      "test_objective": "Verify seamless LEFT to RIGHT transition.",
+      "preconditions": [
+        "Ignition ON",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Flip stalk from LEFT directly to RIGHT",
+        "Monitor consecutive frames",
+        "Check Bits 28-29 transitions"
+      ],
+      "expected_result": "Value transitions 1 → 2",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_ic_ind_005(can_bus):\n    states = [decode_indicator(can_bus.recv()) for _ in range(10)]\n    assert 1 in states and 2 in states"
+    },
+    {
+      "test_case_id": "TC-IC-IND-006",
+      "test_objective": "Verify Hazard priority (Override).",
+      "preconditions": [
+        "Ignition ON",
+        "LEFT indicator active",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Press Hazard switch while LEFT indicator active",
+        "Monitor CAN ID 0x384",
+        "Decode Bits 28-29"
+      ],
+      "expected_result": "GWS_Indicator_State = 3 (Hazard)",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_ic_ind_006(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_indicator(msg) == 3"
+    },
+    {
+      "test_case_id": "TC-IC-IND-007",
+      "test_objective": "Verify signal robustness (Range check).",
+      "preconditions": [
+        "Ignition ON",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Monitor signal during various indicator operations",
+        "Decode Bits 28-29 in each frame"
+      ],
+      "expected_result": "Value is always between 0 and 3",
+      "test_type": "Robustness",
+      "python_test_script": "def test_tc_ic_ind_007(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_indicator(msg) in [0, 1, 2, 3]"
+    }
+  ]
+}

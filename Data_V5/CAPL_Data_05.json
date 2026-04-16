@@ -1,0 +1,254 @@
+{
+  "DBC_outout_after_parsing": {
+    "version": "Gateway Sample DBC v1.0",
+    "nodes": [
+      "BCM",
+      "ECM",
+      "IC",
+      "GW"
+    ],
+    "messages": [
+      {
+        "frame_id": 100,
+        "name": "ECM_VehicleData",
+        "length": 8,
+        "senders": ["ECM"],
+        "signals": [
+          {
+            "name": "VehicleSpeed",
+            "start": 0,
+            "length": 16,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 0.1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 250,
+            "unit": "km/h",
+            "receivers": ["GW"]
+          },
+          {
+            "name": "EngineRPM",
+            "start": 16,
+            "length": 16,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 8000,
+            "unit": "rpm",
+            "receivers": ["GW"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 110,
+        "name": "BCM_BodyStatus",
+        "length": 8,
+        "senders": ["BCM"],
+        "signals": [
+          {
+            "name": "DriverDoorOpen",
+            "start": 0,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["GW"]
+          },
+          {
+            "name": "PassengerDoorOpen",
+            "start": 1,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["GW"]
+          },
+          {
+            "name": "LeftIndicator",
+            "start": 2,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["GW"]
+          },
+          {
+            "name": "RightIndicator",
+            "start": 3,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["GW"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 200,
+        "name": "GW_VehicleStatus",
+        "length": 8,
+        "senders": ["GW"],
+        "signals": [
+          {
+            "name": "GW_SpeedOut",
+            "start": 0,
+            "length": 16,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 0.1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 250,
+            "unit": "km/h",
+            "receivers": ["IC"]
+          },
+          {
+            "name": "AnyDoorOpen",
+            "start": 16,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["IC"]
+          },
+          {
+            "name": "TurnActive",
+            "start": 17,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["IC"]
+          }
+        ]
+      },
+
+      {
+        "frame_id": 210,
+        "name": "GW_Warnings",
+        "length": 8,
+        "senders": ["GW"],
+        "signals": [
+          {
+            "name": "OverspeedWarning",
+            "start": 0,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["IC"]
+          },
+          {
+            "name": "DoorWarning",
+            "start": 1,
+            "length": 1,
+            "byte_order": "little_endian",
+            "is_signed": false,
+            "scale": 1,
+            "offset": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "unit": "",
+            "receivers": ["IC"]
+          }
+        ]
+      }
+    ]
+  },
+  "requirements": [
+    {
+      "requirement_id": "GW-REQ-01",
+      "requirement_text": "The gateway shall periodically transmit the vehicle speed to the instrument cluster based on the most recently received data from the engine control module.",
+      "capl_script": "/* GW-REQ-01 */\nvariables\n{\n  msTimer speedTxTimer;\n  float lastVehicleSpeed = 0.0;\n}\n\non start\n{\n  write(\"GW Simulation started for GW-REQ-01\");\n  setTimer(speedTxTimer, 100);\n}\n\non message ECM_VehicleData\n{\n  lastVehicleSpeed = this.VehicleSpeed;\n  write(\"GW received VehicleSpeed from ECM: %.1f km/h\", lastVehicleSpeed);\n}\n\non timer speedTxTimer\n{\n  message GW_VehicleStatus msg;\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msg.byte(i) = 0;\n  }\n  msg.dlc = 8;\n  msg.GW_SpeedOut = lastVehicleSpeed;\n  output(msg);\n  write(\"GW transmitted GW_SpeedOut to IC: %.1f km/h\", lastVehicleSpeed);\n  setTimer(speedTxTimer, 100);\n}"
+    },
+    {
+      "requirement_id": "GW-REQ-02",
+      "requirement_text": "The gateway shall maintain the defined scaling, unit, and valid range when forwarding vehicle speed information.",
+      "capl_script": "/* GW-REQ-02 */\nvariables\n{\n  message ECM_VehicleData ecmMsg;\n  message GW_VehicleStatus gwMsg;\n  float physicalSpeed;\n  float boundedSpeed;\n}\n\non message ECM_VehicleData\n{\n  physicalSpeed = this.VehicleSpeed;\n  if (physicalSpeed < 0)\n    boundedSpeed = 0;\n  else if (physicalSpeed > 250)\n    boundedSpeed = 250;\n  else\n    boundedSpeed = physicalSpeed;\n\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    gwMsg.byte(i) = 0;\n  }\n  gwMsg.dlc = 8;\n  gwMsg.GW_SpeedOut = boundedSpeed;\n  output(gwMsg);\n}"
+    },
+    {
+      "requirement_id": "GW-REQ-03",
+      "requirement_text": "Upon reception of body status information, the gateway shall immediately evaluate the status of all monitored doors.",
+      "capl_script": "/* GW-REQ-03 */\nvariables\n{\n  message GW_VehicleStatus gwStatusMsg;\n  message GW_Warnings gwWarnMsg;\n}\n\non message BCM_BodyStatus\n{\n  int anyDoor = (this.DriverDoorOpen || this.PassengerDoorOpen);\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    gwStatusMsg.byte(i) = 0;\n  }\n  gwStatusMsg.dlc = 8;\n  gwStatusMsg.AnyDoorOpen = anyDoor;\n  // Reset payload before setting signals\n  for (i = 0; i < 8; i++)\n  {\n    gwWarnMsg.byte(i) = 0;\n  }\n  gwWarnMsg.dlc = 8;\n  gwWarnMsg.DoorWarning = anyDoor;\n  output(gwStatusMsg);\n  output(gwWarnMsg);\n}"
+    },
+    {
+      "requirement_id": "GW-REQ-04",
+      "requirement_text": "The gateway shall derive a consolidated door status based on the evaluated individual door indications.",
+      "capl_script": "/* GW-REQ-04 */\nvariables\n{\n  msTimer gwTxTimer;\n  int anyDoorOpen;\n}\n\non start\n{\n  setTimer(gwTxTimer, 100);\n}\n\non message BCM_BodyStatus\n{\n  anyDoorOpen = (this.DriverDoorOpen || this.PassengerDoorOpen);\n}\n\non timer gwTxTimer\n{\n  message GW_VehicleStatus gwMsg;\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    gwMsg.byte(i) = 0;\n  }\n  gwMsg.dlc = 8;\n  gwMsg.AnyDoorOpen = anyDoorOpen;\n  output(gwMsg);\n  setTimer(gwTxTimer, 100);\n}"
+    },
+    {
+      "requirement_id": "GW-REQ-05",
+      "requirement_text": "The gateway shall periodically transmit the consolidated door status to the instrument cluster.",
+      "capl_script": "/* GW-REQ-05 */\nvariables\n{\n  msTimer doorTxTimer;\n  int anyDoor;\n}\n\non start\n{\n  setTimer(doorTxTimer, 100);\n}\n\non message BCM_BodyStatus\n{\n  anyDoor = (this.DriverDoorOpen || this.PassengerDoorOpen);\n}\n\non timer doorTxTimer\n{\n  message GW_VehicleStatus gwStatus;\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    gwStatus.byte(i) = 0;\n  }\n  gwStatus.dlc = 8;\n  gwStatus.AnyDoorOpen = anyDoor;\n  output(gwStatus);\n  setTimer(doorTxTimer, 100);\n}"
+    },
+    {
+      "requirement_id": "GW-REQ-06",
+      "requirement_text": "Upon reception of body status information, the gateway shall immediately evaluate the status of the turn indicators.",
+      "capl_script": "/* GW-REQ-06 */\nvariables\n{\n  message GW_VehicleStatus gwStatusMsg;\n}\n\non message BCM_BodyStatus\n{\n  int turnActive = (this.LeftIndicator || this.RightIndicator);\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    gwStatusMsg.byte(i) = 0;\n  }\n  gwStatusMsg.dlc = 8;\n  gwStatusMsg.TurnActive = turnActive;\n  output(gwStatusMsg);\n}"
+    },
+    {
+      "requirement_id": "GW-REQ-07",
+      "requirement_text": "The gateway shall derive a consolidated turn activity status based on the evaluated turn indicator inputs.",
+      "capl_script": "/* GW-REQ-07 */\nvariables\n{\n  msTimer txTimer;\n  int turnActive;\n}\n\non start\n{\n  setTimer(txTimer, 100);\n}\n\non message BCM_BodyStatus\n{\n  turnActive = (this.LeftIndicator || this.RightIndicator);\n}\n\non timer txTimer\n{\n  message GW_VehicleStatus msgGW;\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgGW.byte(i) = 0;\n  }\n  msgGW.dlc = 8;\n  msgGW.TurnActive = turnActive;\n  output(msgGW);\n  setTimer(txTimer, 100);\n}"
+    },
+    {
+      "requirement_id": "GW-REQ-08",
+      "requirement_text": "The gateway shall periodically transmit the consolidated turn activity status to the instrument cluster.",
+      "capl_script": "/* GW-REQ-08 */\nvariables\n{\n  msTimer gwTxTimer;\n  int turnActive;\n}\n\non start\n{\n  setTimer(gwTxTimer, 100);\n}\n\non message BCM_BodyStatus\n{\n  turnActive = (this.LeftIndicator || this.RightIndicator);\n}\n\non timer gwTxTimer\n{\n  message GW_VehicleStatus gwStatusMsg;\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    gwStatusMsg.byte(i) = 0;\n  }\n  gwStatusMsg.dlc = 8;\n  gwStatusMsg.TurnActive = turnActive;\n  output(gwStatusMsg);\n  setTimer(gwTxTimer, 100);\n}"
+    },
+    {
+      "requirement_id": "GW-REQ-09",
+      "requirement_text": "When the vehicle speed exceeds a configured threshold, the gateway shall generate an overspeed warning condition.",
+      "capl_script": "/* GW-REQ-09 */\nvariables\n{\n  const float OVERSPEED_THRESHOLD = 120.0;\n}\n\non message ECM_VehicleData\n{\n  message GW_Warnings warningMsg;\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    warningMsg.byte(i) = 0;\n  }\n  warningMsg.dlc = 8;\n  warningMsg.OverspeedWarning = (this.VehicleSpeed > OVERSPEED_THRESHOLD);\n  output(warningMsg);\n}"
+    },
+    {
+      "requirement_id": "GW-REQ-10",
+      "requirement_text": "Upon a change in overspeed warning status, the gateway shall immediately transmit the updated warning information to the instrument cluster.",
+      "capl_script": "/* GW-REQ-10 */\nvariables\n{\n  int previousOverspeedStatus = 0;\n  const float OVERSPEED_THRESHOLD = 120.0;\n}\n\non message ECM_VehicleData\n{\n  int overspeedStatus = (this.VehicleSpeed > OVERSPEED_THRESHOLD);\n  if (overspeedStatus != previousOverspeedStatus)\n  {\n    message GW_Warnings msgWarnings;\n    // Reset payload before setting signals\n    int i;\n    for (i = 0; i < 8; i++)\n    {\n      msgWarnings.byte(i) = 0;\n    }\n    msgWarnings.dlc = 8;\n    msgWarnings.OverspeedWarning = overspeedStatus;\n    output(msgWarnings);\n  }\n  previousOverspeedStatus = overspeedStatus;\n}"
+    },
+    {
+      "requirement_id": "GW-REQ-11",
+      "requirement_text": "If a door open condition is detected while the vehicle is in motion, the gateway shall generate a door warning condition.",
+      "capl_script": "/* GW-REQ-11 */\nvariables\n{\n  float vehicleSpeed = 0;\n}\n\non message ECM_VehicleData\n{\n  vehicleSpeed = this.VehicleSpeed;\n}\n\non message BCM_BodyStatus\n{\n  message GW_Warnings msgGW;\n  int anyDoor = (this.DriverDoorOpen || this.PassengerDoorOpen);\n  // Reset payload before setting signals\n  int i;\n  for (i = 0; i < 8; i++)\n  {\n    msgGW.byte(i) = 0;\n  }\n  msgGW.dlc = 8;\n  msgGW.DoorWarning = (vehicleSpeed > 0 && anyDoor);\n  output(msgGW);\n}"
+    },
+    {
+      "requirement_id": "GW-REQ-12",
+      "requirement_text": "Upon a change in door warning status, the gateway shall immediately transmit the updated warning information to the instrument cluster.",
+      "capl_script": "/* GW-REQ-12 */\nvariables\n{\n  int prevDriverDoor = -1;\n  int prevPassengerDoor = -1;\n}\n\non message BCM_BodyStatus\n{\n  int driverDoor = this.DriverDoorOpen;\n  int passengerDoor = this.PassengerDoorOpen;\n\n  if (driverDoor != prevDriverDoor || passengerDoor != prevPassengerDoor)\n  {\n    message GW_Warnings msgWarnings;\n    // Reset payload before setting signals\n    int i;\n    for (i = 0; i < 8; i++)\n    {\n      msgWarnings.byte(i) = 0;\n    }\n    msgWarnings.dlc = 8;\n    msgWarnings.DoorWarning = (driverDoor || passengerDoor);\n    output(msgWarnings);\n  }\n\n  prevDriverDoor = driverDoor;\n  prevPassengerDoor = passengerDoor;\n}"
+    }
+  ]
+
+}

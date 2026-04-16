@@ -1,0 +1,109 @@
+{
+  "requirement": {
+    "requirement_id": "IC-REQ-03",
+    "description": "When the driver activates or deactivates the high-beam request, the instrument cluster shall immediately communicate the high-beam request status to the gateway ECU.",
+    "can_message": {
+      "node": "IC",
+      "arbitration_id": "0x280",
+      "message_name": "IC_Driver_Command",
+      "dlc": 8,
+      "signals": [
+        {
+          "name": "IC_HighBeam_Request",
+          "start_bit": 3,
+          "length": 1,
+          "byte_order": "little_endian",
+          "values": {
+            "0": "OFF",
+            "1": "ON"
+          }
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-IC-HB-001",
+      "test_objective": "Verify signal is 0 when High-Beam is OFF.",
+      "preconditions": [
+        "Ignition ON",
+        "Stalk in neutral/low-beam position",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Ensure stalk is in neutral/low-beam",
+        "Monitor CAN ID 0x280",
+        "Decode Bit 3 (IC_HighBeam_Request)"
+      ],
+      "expected_result": "IC_HighBeam_Request = 0",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_ic_hb_001(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_hb(msg) == 0"
+    },
+    {
+      "test_case_id": "TC-IC-HB-002",
+      "test_objective": "Verify signal is 1 when High-Beam is ON.",
+      "preconditions": [
+        "Ignition ON",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Activate High-Beam (push/pull stalk)",
+        "Monitor CAN ID 0x280",
+        "Decode Bit 3"
+      ],
+      "expected_result": "IC_HighBeam_Request = 1",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_ic_hb_002(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_hb(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-IC-HB-003",
+      "test_objective": "Verify immediate transition from OFF to ON.",
+      "preconditions": [
+        "Ignition ON",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Toggle stalk from OFF to ON",
+        "Capture consecutive frames",
+        "Decode Bit 3 in each frame"
+      ],
+      "expected_result": "Signal transitions 0 → 1 without delay",
+      "test_type": "Timing",
+      "python_test_script": "def test_tc_ic_hb_003(can_bus):\n    states = [decode_hb(can_bus.recv()) for _ in range(20)]\n    assert 0 in states and 1 in states\n    assert states.index(1) > states.index(0)"
+    },
+    {
+      "test_case_id": "TC-IC-HB-004",
+      "test_objective": "Verify immediate transition from ON to OFF.",
+      "preconditions": [
+        "Ignition ON",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Toggle stalk from ON to OFF",
+        "Capture consecutive frames",
+        "Decode Bit 3 in each frame"
+      ],
+      "expected_result": "Signal transitions 1 → 0 without delay",
+      "test_type": "Timing",
+      "python_test_script": "def test_tc_ic_hb_004(can_bus):\n    states = [decode_hb(can_bus.recv()) for _ in range(20)]\n    assert 1 in states and 0 in states\n    assert states.index(0) > states.index(1)"
+    },
+    {
+      "test_case_id": "TC-IC-HB-005",
+      "test_objective": "Verify signal stability (Anti-flicker).",
+      "preconditions": [
+        "Ignition ON",
+        "High-Beam maintained ON",
+        "CAN monitoring tool connected"
+      ],
+      "test_steps": [
+        "Maintain High-Beam ON for 2 seconds",
+        "Capture multiple frames",
+        "Decode Bit 3 in all frames"
+      ],
+      "expected_result": "Signal remains constant at 1",
+      "test_type": "Robustness",
+      "python_test_script": "def test_tc_ic_hb_005(can_bus):\n    for _ in range(10):\n        assert decode_hb(can_bus.recv()) == 1"
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "requirement": {
+    "requirement_id": "C-01",
+    "description": "If any critical input signal is not updated within its configured timeout, the gateway shall set a timeout fault flag.",
+    "can_messages": [
+      {
+        "node": "Gateway ECU",
+        "arbitration_id": "0x118",
+        "message_name": "GW_FaultStatus",
+        "signals": [
+          {
+            "name": "DoorSignalTimeout",
+            "byte": 0,
+            "bit": 0
+          },
+          {
+            "name": "SpeedSignalTimeout",
+            "byte": 0,
+            "bit": 1
+          }
+        ],
+        "dlc": 8
+      }
+    ],
+    "python_test_setup": "# ============================================================\n# Gateway ECU – Signal Timeout Detection Tests (C-01)\n# ============================================================\nimport time\nimport can\nimport pytest\n\nGW_FAULT_STATUS_ID = 0x118\nGW_FAULT_STATUS_DLC = 8\n\n# ---------------------------\n# CAN Bus Fixture\n# ---------------------------\n@pytest.fixture(scope=\"module\")\ndef can_bus():\n    bus = can.Bus(\n        interface=\"vector\",      # vector / socketcan / pcan configurable\n        channel=0,\n        bitrate=500000\n    )\n    yield bus\n    bus.shutdown()\n\n# ---------------------------\n# Utility Functions\n# ---------------------------\ndef collect_messages(bus, msg_id, duration_sec):\n    messages = []\n    start_time = time.time()\n    while time.time() - start_time < duration_sec:\n        msg = bus.recv(timeout=0.5)\n        if msg and msg.arbitration_id == msg_id:\n            messages.append(msg)\n    return messages\n\n\ndef decode_door_signal_timeout(msg):\n    return (msg.data[0] >> 0) & 0x01\n\n\ndef decode_speed_signal_timeout(msg):\n    return (msg.data[0] >> 1) & 0x01"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-TIMEOUT-001",
+      "title": "Verify GW_FaultStatus message transmission presence",
+      "precondition": "Vehicle ignition ON; Gateway ECU powered; CAN monitoring tool connected and configured to capture message ID 0x118",
+      "steps": [
+        "Switch vehicle ignition to ON",
+        "Allow Gateway ECU to boot",
+        "Monitor CAN bus for GW_FaultStatus message"
+      ],
+      "expected_result": "GW_FaultStatus message is present on the CAN bus",
+      "postcondition": "Switch ignition OFF; disconnect CAN monitoring tool",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_timeout_001_message_present(can_bus):\n    msgs = collect_messages(can_bus, GW_FAULT_STATUS_ID, 2)\n    assert msgs"
+    },
+    {
+      "test_case_id": "TC-GW-TIMEOUT-002",
+      "title": "Verify no timeout flags when signals updated correctly",
+      "precondition": "Ignition ON; all critical input signals updated periodically",
+      "steps": [
+        "Ensure door and vehicle speed signals are transmitted normally",
+        "Monitor GW_FaultStatus message",
+        "Extract DoorSignalTimeout and SpeedSignalTimeout signals"
+      ],
+      "expected_result": "DoorSignalTimeout = 0 and SpeedSignalTimeout = 0 transmitted",
+      "postcondition": "Stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_timeout_002_no_timeout_flags(can_bus):\n    msgs = collect_messages(can_bus, GW_FAULT_STATUS_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_door_signal_timeout(msg) == 0\n        assert decode_speed_signal_timeout(msg) == 0"
+    },
+    {
+      "test_case_id": "TC-GW-TIMEOUT-003",
+      "title": "Verify door signal timeout flag set",
+      "precondition": "Ignition ON; door status input active initially",
+      "steps": [
+        "Stop transmission of door status input via CAPL",
+        "Wait longer than configured door signal timeout",
+        "Monitor GW_FaultStatus message",
+        "Extract DoorSignalTimeout signal"
+      ],
+      "expected_result": "DoorSignalTimeout = 1 transmitted",
+      "postcondition": "Restore door status transmission; stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_timeout_003_door_signal_timeout(can_bus):\n    msgs = collect_messages(can_bus, GW_FAULT_STATUS_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_door_signal_timeout(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-TIMEOUT-004",
+      "title": "Verify speed signal timeout flag set",
+      "precondition": "Ignition ON; vehicle speed input active initially",
+      "steps": [
+        "Stop transmission of vehicle speed input via CAPL",
+        "Wait longer than configured speed signal timeout",
+        "Monitor GW_FaultStatus message",
+        "Extract SpeedSignalTimeout signal"
+      ],
+      "expected_result": "SpeedSignalTimeout = 1 transmitted",
+      "postcondition": "Restore vehicle speed transmission; stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_timeout_004_speed_signal_timeout(can_bus):\n    msgs = collect_messages(can_bus, GW_FAULT_STATUS_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_speed_signal_timeout(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-TIMEOUT-005",
+      "title": "Verify multiple timeout flags set simultaneously",
+      "precondition": "Ignition ON; all critical inputs active",
+      "steps": [
+        "Stop door and vehicle speed input transmissions",
+        "Wait longer than configured timeout",
+        "Monitor GW_FaultStatus message",
+        "Extract DoorSignalTimeout and SpeedSignalTimeout"
+      ],
+      "expected_result": "DoorSignalTimeout = 1 and SpeedSignalTimeout = 1 transmitted",
+      "postcondition": "Restore all input signals; stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_timeout_005_multiple_timeouts(can_bus):\n    msgs = collect_messages(can_bus, GW_FAULT_STATUS_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert decode_door_signal_timeout(msg) == 1\n        assert decode_speed_signal_timeout(msg) == 1"
+    },
+    {
+      "test_case_id": "TC-GW-TIMEOUT-006",
+      "title": "Verify timeout flag clears after signal resumes",
+      "precondition": "Ignition ON; timeout flag previously set",
+      "steps": [
+        "Resume transmission of timed-out signal",
+        "Monitor GW_FaultStatus message",
+        "Extract corresponding timeout flag"
+      ],
+      "expected_result": "Timeout flag returns to 0 after valid signal updates",
+      "postcondition": "Stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_timeout_006_timeout_clear(can_bus):\n    msgs = collect_messages(can_bus, GW_FAULT_STATUS_ID, 3)\n    assert msgs\n    for msg in msgs:\n        assert decode_door_signal_timeout(msg) in (0, 1)\n        assert decode_speed_signal_timeout(msg) in (0, 1)"
+    },
+    {
+      "test_case_id": "TC-GW-TIMEOUT-007",
+      "title": "Verify GW_FaultStatus message DLC",
+      "precondition": "Ignition ON; CAN monitoring enabled",
+      "steps": [
+        "Capture GW_FaultStatus frame",
+        "Verify DLC"
+      ],
+      "expected_result": "DLC = 8 bytes",
+      "postcondition": "Stop CAN monitoring",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_timeout_007_dlc_check(can_bus):\n    msgs = collect_messages(can_bus, GW_FAULT_STATUS_ID, 2)\n    assert msgs\n    for msg in msgs:\n        assert msg.dlc == GW_FAULT_STATUS_DLC"
+    },
+    {
+      "test_case_id": "TC-GW-TIMEOUT-008",
+      "title": "Verify GW_FaultStatus stops transmitting on power OFF",
+      "precondition": "Gateway ECU active",
+      "steps": [
+        "Monitor GW_FaultStatus messages",
+        "Switch ignition OFF",
+        "Observe CAN bus"
+      ],
+      "expected_result": "GW_FaultStatus message transmission stops",
+      "postcondition": "Ignition OFF",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_timeout_008_stop_on_power_off(can_bus):\n    msgs_before = collect_messages(can_bus, GW_FAULT_STATUS_ID, 2)\n    assert msgs_before\n    time.sleep(3)\n    msgs_after = collect_messages(can_bus, GW_FAULT_STATUS_ID, 2)\n    assert not msgs_after"
+    }
+  ]
+}

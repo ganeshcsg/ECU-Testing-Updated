@@ -1,0 +1,72 @@
+{
+  "requirement": {
+    "requirement_id": "BCM-REQ-02",
+    "description": "When the exterior parking lamp state changes between OFF and ON, the body controller shall immediately broadcast the updated exterior lamp state to the network.",
+    "can_message": {
+      "node": "BCM",
+      "arbitration_id": "0x12C",
+      "message_name": "BCM_Body_State",
+      "dlc": 8,
+      "signals": [
+        {
+          "name": "Bdy_Parking_Lamp",
+          "start_bit": 1,
+          "length": 1,
+          "byte_order": "little_endian",
+          "values": {
+            "0": "Parking Lamp OFF",
+            "1": "Parking Lamp ON"
+          }
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-PL-001",
+      "test_objective": "Verify parking lamp status is 0 when OFF.",
+      "preconditions": [
+        "Ignition ON",
+        "Parking lamp switch OFF"
+      ],
+      "test_steps": [
+        "Monitor CAN ID 0x12C",
+        "Extract Bdy_Parking_Lamp"
+      ],
+      "expected_result": "Bdy_Parking_Lamp = 0",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_pl_001_off(can_bus):\n    msg = recv_bcm_message(can_bus)\n    assert get_bdy_parking_lamp(msg.data) == 0"
+    },
+    {
+      "test_case_id": "TC-PL-002",
+      "test_objective": "Verify parking lamp status is 1 when ON.",
+      "preconditions": [
+        "Ignition ON",
+        "Parking lamp switch ON"
+      ],
+      "test_steps": [
+        "Switch parking lamp ON",
+        "Monitor BCM_Body_State message"
+      ],
+      "expected_result": "Bdy_Parking_Lamp = 1",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_pl_002_on(can_bus):\n    msg = recv_bcm_message(can_bus)\n    assert get_bdy_parking_lamp(msg.data) == 1"
+    },
+    {
+      "test_case_id": "TC-PL-003",
+      "test_objective": "Verify immediate update on parking lamp transition.",
+      "preconditions": [
+        "Ignition ON",
+        "Parking lamp initially OFF"
+      ],
+      "test_steps": [
+        "Switch parking lamp to ON",
+        "Capture next CAN frame"
+      ],
+      "expected_result": "First message reflects updated ON state",
+      "test_type": "Timing",
+      "python_test_script": "def test_tc_pl_003_transition_on(can_bus):\n    msg = recv_bcm_message(can_bus)\n    assert get_bdy_parking_lamp(msg.data) == 1"
+    }
+  ]
+}

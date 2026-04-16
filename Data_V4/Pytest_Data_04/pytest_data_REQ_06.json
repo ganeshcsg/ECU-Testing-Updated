@@ -1,0 +1,178 @@
+{
+  "requirement": {
+    "requirement_id": "REQ_06",
+    "description": "When engine temperature exceeds the safe operating limit, the system shall immediately activate the high-temperature warning.",
+    "can_messages": [
+      {
+        "node": "EngineECU",
+        "arbitration_id": "0x2C6",
+        "message_name": "Engine_Data",
+        "dlc": 8,
+        "signals": [
+          {
+            "name": "EngineTemp",
+            "start_bit": 16,
+            "length": 8,
+            "byte_order": "little_endian",
+            "formula": "Temp(°C) = raw - 40"
+          }
+        ]
+      },
+      {
+        "node": "Gateway",
+        "arbitration_id": "0x2E4",
+        "message_name": "Gateway_Warnings",
+        "dlc": 8,
+        "signals": [
+          {
+            "name": "HighTempWarn",
+            "start_bit": 2,
+            "length": 1,
+            "byte_order": "little_endian",
+            "values": {
+              "0": "Inactive",
+              "1": "Active"
+            }
+          }
+        ]
+      }
+    ]
+  },
+
+  "test_cases": [
+
+    {
+      "test_case_id": "TC-GW-S11-001",
+      "test_objective": "Verify HighTempWarn activates when engine temperature exceeds safe limit.",
+      "preconditions": [
+        "Ignition ON",
+        "Engine running",
+        "EngineTemp below threshold",
+        "CAN monitoring connected"
+      ],
+      "test_steps": [
+        "Increase EngineTemp above limit via CAPL",
+        "Monitor ID 0x2E4",
+        "Extract HighTempWarn"
+      ],
+      "expected_result": "HighTempWarn = 1 immediately after threshold crossing",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s11_001(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_TIME)\n    assert msgs\n    for m in msgs:\n        assert decode_high_temp_warn(m) == 1"
+    },
+
+    {
+      "test_case_id": "TC-GW-S11-002",
+      "test_objective": "Verify HighTempWarn activates exactly at threshold crossing.",
+      "preconditions": [
+        "Ignition ON",
+        "Temperature just below limit"
+      ],
+      "test_steps": [
+        "Gradually increase temperature",
+        "Capture first warning frame"
+      ],
+      "expected_result": "HighTempWarn transitions 0 → 1 within one CAN frame",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s11_002(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_TIME)\n    assert decode_high_temp_warn(msgs[0]) == 1"
+    },
+
+    {
+      "test_case_id": "TC-GW-S11-003",
+      "test_objective": "Verify HighTempWarn remains inactive below threshold.",
+      "preconditions": [
+        "Ignition ON",
+        "EngineTemp < SAFE_TEMP_LIMIT"
+      ],
+      "test_steps": [
+        "Maintain temperature below threshold",
+        "Monitor Gateway_Warnings"
+      ],
+      "expected_result": "HighTempWarn = 0 continuously",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s11_003(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_TIME)\n    for m in msgs:\n        assert decode_high_temp_warn(m) == 0"
+    },
+
+    {
+      "test_case_id": "TC-GW-S11-004",
+      "test_objective": "Verify HighTempWarn remains active while temperature stays above limit.",
+      "preconditions": [
+        "Ignition ON",
+        "EngineTemp above threshold"
+      ],
+      "test_steps": [
+        "Hold temperature above limit",
+        "Capture multiple warning frames"
+      ],
+      "expected_result": "HighTempWarn = 1 for all frames",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s11_004(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_TIME)\n    for m in msgs:\n        assert decode_high_temp_warn(m) == 1"
+    },
+
+    {
+      "test_case_id": "TC-GW-S11-005",
+      "test_objective": "Verify HighTempWarn activates regardless of vehicle speed.",
+      "preconditions": [
+        "Ignition ON",
+        "Vehicle speed varied"
+      ],
+      "test_steps": [
+        "Trigger over-temperature at standstill",
+        "Trigger over-temperature while moving",
+        "Monitor Gateway_Warnings"
+      ],
+      "expected_result": "HighTempWarn activates in both conditions",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s11_005(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_TIME)\n    assert all(decode_high_temp_warn(m) == 1 for m in msgs)"
+    },
+
+    {
+      "test_case_id": "TC-GW-S11-006",
+      "test_objective": "Verify HighTempWarn activation independent of door states.",
+      "preconditions": [
+        "Ignition ON",
+        "Doors open/closed combinations tested"
+      ],
+      "test_steps": [
+        "Trigger over-temperature",
+        "Change door states",
+        "Monitor Gateway_Warnings"
+      ],
+      "expected_result": "HighTempWarn remains active independent of door status",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s11_006(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_TIME)\n    for m in msgs:\n        assert decode_high_temp_warn(m) == 1"
+    },
+
+    {
+      "test_case_id": "TC-GW-S11-007",
+      "test_objective": "Verify immediate activation timing.",
+      "preconditions": [
+        "Ignition ON",
+        "Temperature just below threshold"
+      ],
+      "test_steps": [
+        "Cross threshold",
+        "Capture first Gateway_Warnings frame"
+      ],
+      "expected_result": "HighTempWarn asserted in first frame after crossing",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s11_007(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_TIME)\n    assert decode_high_temp_warn(msgs[0]) == 1"
+    },
+
+    {
+      "test_case_id": "TC-GW-S11-008",
+      "test_objective": "Verify deterministic activation for repeated over-temperature events.",
+      "preconditions": [
+        "Repeated over-temperature cycles"
+      ],
+      "test_steps": [
+        "Trigger multiple temperature cycles",
+        "Capture Gateway_Warnings",
+        "Compare HighTempWarn values"
+      ],
+      "expected_result": "Consistent HighTempWarn behavior across all cycles",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_s11_008(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_GATEWAY_WARNINGS, CAPTURE_TIME)\n    for m in msgs:\n        assert decode_high_temp_warn(m) == 1"
+    }
+
+  ]
+}

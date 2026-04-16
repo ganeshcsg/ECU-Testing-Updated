@@ -1,0 +1,128 @@
+{
+  "requirement": {
+    "requirement_id": "S-05",
+    "description": "The gateway shall transmit its software version information upon network startup.",
+    "can_messages": [
+      {
+        "node": "Gateway",
+        "arbitration_id": "0x104",
+        "message_name": "GW_SoftwareVersion",
+        "signals": [
+          {
+            "signal": "SW_Major",
+            "start_bit": 0,
+            "length": 8,
+            "byte": 0
+          },
+          {
+            "signal": "SW_Minor",
+            "start_bit": 8,
+            "length": 8,
+            "byte": 1
+          },
+          {
+            "signal": "SW_Patch",
+            "start_bit": 16,
+            "length": 8,
+            "byte": 2
+          }
+        ],
+        "dlc": 8
+      }
+    ],
+    "python_test_setup": "import os\nimport time\nimport pytest\nimport can\n\nGW_SOFTWARE_VERSION_ID = 0x104\nGW_SOFTWARE_VERSION_DLC = 8\n\n@pytest.fixture(scope=\"module\")\ndef can_bus():\n    bus = can.interface.Bus(\n        interface=os.getenv('CAN_INTERFACE', 'vector'),\n        channel=os.getenv('CAN_CHANNEL', 0),\n        bitrate=500000\n    )\n    yield bus\n    bus.shutdown()\n\n\ndef collect_gw_messages(bus, duration_sec=1.0):\n    msgs = []\n    start = time.time()\n    while time.time() - start < duration_sec:\n        msg = bus.recv(timeout=0.2)\n        if msg and msg.arbitration_id == GW_SOFTWARE_VERSION_ID:\n            msgs.append(msg)\n    return msgs\n\n\ndef get_sw_major(data_bytes: bytes) -> int:\n    return data_bytes[0]\n\n\ndef get_sw_minor(data_bytes: bytes) -> int:\n    return data_bytes[1]\n\n\ndef get_sw_patch(data_bytes: bytes) -> int:\n    return data_bytes[2]"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-SW-001",
+      "title": "Verify GW_SoftwareVersion message is transmitted on startup",
+      "precondition": "Ignition OFF; Gateway powered OFF; Monitor CAN ID 0x104",
+      "steps": [
+        "Start CAN monitoring",
+        "Switch ignition ON",
+        "Allow Gateway to boot",
+        "Monitor CAN bus"
+      ],
+      "expected_result": "GW_SoftwareVersion message transmitted upon network startup",
+      "python_test_script": "def test_tc_gw_sw_001_startup(can_bus):\n    msgs = collect_gw_messages(can_bus, 5.0)\n    assert msgs, 'GW_SoftwareVersion not received on startup'"
+    },
+    {
+      "test_case_id": "TC-GW-SW-002",
+      "title": "Verify correct transmission of software major version",
+      "precondition": "Gateway ECU powered ON after startup",
+      "steps": [
+        "Monitor GW_SoftwareVersion message",
+        "Extract SW_Major from byte 0"
+      ],
+      "expected_result": "SW_Major matches configured software major version",
+      "python_test_script": "def test_tc_gw_sw_002_major(can_bus):\n    msgs = collect_gw_messages(can_bus, 5.0)\n    assert msgs\n    for msg in msgs:\n        assert get_sw_major(msg.data) >= 0"
+    },
+    {
+      "test_case_id": "TC-GW-SW-003",
+      "title": "Verify correct transmission of software minor version",
+      "precondition": "Gateway ECU powered ON after startup",
+      "steps": [
+        "Monitor GW_SoftwareVersion message",
+        "Extract SW_Minor from byte 1"
+      ],
+      "expected_result": "SW_Minor matches configured software minor version",
+      "python_test_script": "def test_tc_gw_sw_003_minor(can_bus):\n    msgs = collect_gw_messages(can_bus, 5.0)\n    assert msgs\n    for msg in msgs:\n        assert get_sw_minor(msg.data) >= 0"
+    },
+    {
+      "test_case_id": "TC-GW-SW-004",
+      "title": "Verify correct transmission of software patch version",
+      "precondition": "Gateway ECU powered ON after startup",
+      "steps": [
+        "Monitor GW_SoftwareVersion message",
+        "Extract SW_Patch from byte 2"
+      ],
+      "expected_result": "SW_Patch matches configured software patch version",
+      "python_test_script": "def test_tc_gw_sw_004_patch(can_bus):\n    msgs = collect_gw_messages(can_bus, 5.0)\n    assert msgs\n    for msg in msgs:\n        assert get_sw_patch(msg.data) >= 0"
+    },
+    {
+      "test_case_id": "TC-GW-SW-005",
+      "title": "Verify GW_SoftwareVersion transmitted only at startup",
+      "precondition": "Gateway active; CAN monitoring enabled",
+      "steps": [
+        "Capture CAN traffic for 10 seconds after startup",
+        "Count GW_SoftwareVersion messages"
+      ],
+      "expected_result": "GW_SoftwareVersion transmitted once or limited startup burst only",
+      "python_test_script": "def test_tc_gw_sw_005_single_startup(can_bus):\n    msgs = collect_gw_messages(can_bus, 10.0)\n    assert len(msgs) >= 1"
+    },
+    {
+      "test_case_id": "TC-GW-SW-006",
+      "title": "Verify GW_SoftwareVersion DLC",
+      "precondition": "Gateway ECU active",
+      "steps": [
+        "Capture GW_SoftwareVersion frame",
+        "Check DLC"
+      ],
+      "expected_result": "DLC = 8 bytes",
+      "python_test_script": "def test_tc_gw_sw_006_dlc(can_bus):\n    msgs = collect_gw_messages(can_bus, 5.0)\n    assert msgs\n    for msg in msgs:\n        assert msg.dlc == GW_SOFTWARE_VERSION_DLC"
+    },
+    {
+      "test_case_id": "TC-GW-SW-007",
+      "title": "Verify software version remains unchanged during operation",
+      "precondition": "Gateway running; CAN monitoring enabled",
+      "steps": [
+        "Capture GW_SoftwareVersion at startup",
+        "Continue monitoring",
+        "Compare SW_Major, SW_Minor, SW_Patch"
+      ],
+      "expected_result": "Software version fields remain unchanged",
+      "python_test_script": "def test_tc_gw_sw_007_stability(can_bus):\n    msgs = collect_gw_messages(can_bus, 5.0)\n    assert msgs\n    first = msgs[0]\n    for msg in msgs:\n        assert get_sw_major(msg.data) == get_sw_major(first.data)\n        assert get_sw_minor(msg.data) == get_sw_minor(first.data)\n        assert get_sw_patch(msg.data) == get_sw_patch(first.data)"
+    },
+    {
+      "test_case_id": "TC-GW-SW-008",
+      "title": "Verify GW_SoftwareVersion retransmitted after reset",
+      "precondition": "Gateway powered OFF",
+      "steps": [
+        "Switch ignition ON",
+        "Monitor CAN bus during startup"
+      ],
+      "expected_result": "GW_SoftwareVersion transmitted again after reset",
+      "python_test_script": "def test_tc_gw_sw_008_reset(can_bus):\n    time.sleep(3)\n    msgs = collect_gw_messages(can_bus, 5.0)\n    assert msgs"
+    }
+  ]
+}

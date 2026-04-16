@@ -1,0 +1,97 @@
+{
+  "requirement": {
+    "requirement_id": "REQ-09",
+    "description": "When the driver requests high beam, the IC shall transmit the high beam switch request on the CAN bus.",
+    "can_messages": [
+      {
+        "node": "IC",
+        "arbitration_id": "0x300",
+        "signal": "High_Beam_Switch_Requested",
+        "bit": 1
+      }
+    ],
+    "python_test_setup": "import os\nimport time\nimport pytest\nimport can\n\nIC_MSG_ID = 0x300\nRECV_TIMEOUT = 0.5\n\n@pytest.fixture(scope=\"session\")\ndef can_bus():\n    bus = can.Bus(interface=os.getenv(\"CAN_INTERFACE\", \"socketcan\"), channel=os.getenv(\"CAN_CHANNEL\", \"can0\"), bitrate=500000)\n    yield bus\n    bus.shutdown()\n\ndef get_high_beam_status(data: bytes) -> int:\n    return (data[0] >> 1) & 0x01\n\ndef collect_ic_messages(bus, duration):\n    end_time = time.time() + duration\n    collected = []\n    while time.time() < end_time:\n        msg = bus.recv(timeout=RECV_TIMEOUT)\n        if msg and msg.arbitration_id == IC_MSG_ID: collected.append(msg)\n    return collected"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-HB-001",
+      "title": "Verify High_Beam_Switch_Requested = 1 when pressed",
+      "precondition": "Ignition ON; monitor CAN ID 0x300",
+      "steps": ["Turn ignition ON", "Operate high beam stalk to ON", "Monitor IC_Driver_Inputs", "Extract bit 1"],
+      "expected_result": "Signal value is 1 and transmitted periodically",
+      "python_test_script": "def test_tc_hb_001_high_beam_on(can_bus):\n    msgs = collect_ic_messages(can_bus, 2)\n    assert msgs, 'No IC frames received'\n    assert all(get_high_beam_status(m.data) == 1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-HB-002",
+      "title": "Verify High_Beam_Switch_Requested = 0 when not requested",
+      "precondition": "Ignition ON; monitor CAN ID 0x300",
+      "steps": ["Ensure stalk is in OFF position", "Monitor IC_Driver_Inputs"],
+      "expected_result": "Signal value remains 0",
+      "python_test_script": "def test_tc_hb_002_high_beam_off(can_bus):\n    msgs = collect_ic_messages(can_bus, 2)\n    assert all(get_high_beam_status(m.data) == 0 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-HB-003",
+      "title": "Transition: OFF to ON",
+      "precondition": "Ignition ON; start with High Beam OFF",
+      "steps": ["Monitor IC_Driver_Inputs", "Toggle high beam ON", "Observe next frame"],
+      "expected_result": "Updates to 1 within next message cycle",
+      "python_test_script": "def test_tc_hb_003_transition_off_to_on(can_bus):\n    msg = wait_for_next_ic_frame(can_bus)\n    assert get_high_beam_status(msg.data) == 1"
+    },
+    {
+      "test_case_id": "TC-HB-004",
+      "title": "Transition: ON to OFF",
+      "precondition": "Ignition ON; high beam initially ON",
+      "steps": ["Monitor IC_Driver_Inputs", "Toggle high beam OFF", "Capture next frame"],
+      "expected_result": "Signal becomes 0 in next frame",
+      "python_test_script": "def test_tc_hb_004_transition_on_to_off(can_bus):\n    msg = wait_for_next_ic_frame(can_bus)\n    assert get_high_beam_status(msg.data) == 0"
+    },
+    {
+      "test_case_id": "TC-HB-005",
+      "title": "Signal Stability (ON)",
+      "precondition": "High beam ON for 10 seconds",
+      "steps": ["Collect messages for 10s", "Analyze consistency"],
+      "expected_result": "Remains consistently 1 in all frames",
+      "python_test_script": "def test_tc_hb_005_stability_on(can_bus):\n    msgs = collect_ic_messages(can_bus, 10)\n    assert all(get_high_beam_status(m.data) == 1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-HB-006",
+      "title": "Signal Stability (OFF)",
+      "precondition": "High beam OFF for 10 seconds",
+      "steps": ["Monitor for 10s", "Extract signal across frames"],
+      "expected_result": "High_Beam_Switch_Requested always remains 0",
+      "python_test_script": "def test_tc_hb_006_stability_off(can_bus):\n    msgs = collect_ic_messages(can_bus, 10)\n    assert all(get_high_beam_status(m.data) == 0 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-HB-007",
+      "title": "Interface Verification: Message ID",
+      "precondition": "CAN monitoring enabled",
+      "steps": ["Activate high beam", "Capture traffic", "Identify signal ID"],
+      "expected_result": "Signal is transmitted only in ID 0x300",
+      "python_test_script": "def test_tc_hb_007_msg_id(can_bus):\n    msg = wait_for_next_ic_frame(can_bus)\n    assert msg.arbitration_id == 0x300"
+    },
+    {
+      "test_case_id": "TC-HB-008",
+      "title": "Structural Verification: Bit Position",
+      "precondition": "CAN decoding configured",
+      "steps": ["Activate high beam", "Inspect bit 1"],
+      "expected_result": "Bit 1 = 1 when ON, Bit 1 = 0 when OFF",
+      "python_test_script": "def test_tc_hb_008_bit_pos(can_bus):\n    msg = wait_for_next_ic_frame(can_bus)\n    assert (msg.data[0] >> 1) & 0x01 in (0,1)"
+    },
+    {
+      "test_case_id": "TC-HB-009",
+      "title": "Robustness: Invalid Values",
+      "precondition": "Ignition ON",
+      "steps": ["Toggle high beam repeatedly", "Review for invalid states"],
+      "expected_result": "Signal only takes values 0 or 1",
+      "python_test_script": "def test_tc_hb_009_robustness(can_bus):\n    msgs = collect_ic_messages(can_bus, 5)\n    assert all(get_high_beam_status(m.data) in (0, 1) for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-HB-010",
+      "title": "Timing: Periodic Transmission",
+      "precondition": "High beam ON",
+      "steps": ["Capture for 5 seconds", "Count messages"],
+      "expected_result": "Transmitted continuously with High_Beam_Switch_Requested = 1",
+      "python_test_script": "def test_tc_hb_010_periodic(can_bus):\n    msgs = collect_ic_messages(can_bus, 5)\n    assert len(msgs) >= 5"
+    }
+  ]
+}

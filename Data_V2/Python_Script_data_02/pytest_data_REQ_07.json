@@ -1,0 +1,55 @@
+{
+  "requirement": {
+    "requirement_id": "ECM-REQ-03",
+    "description": "The engine controller shall periodically provide the current accelerator pedal or throttle position value to the gateway ECU.",
+    "can_message": {
+      "node": "ECM",
+      "arbitration_id": "0x208",
+      "message_name": "ECM_Powertrain_Data",
+      "dlc": 8,
+      "signals": [
+        {
+          "name": "ECM_Throttle_Position",
+          "start_bit": 0,
+          "length": 8,
+          "scale": 0.4,
+          "unit": "%",
+          "range": "0–100"
+        }
+      ]
+    }
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-ECM-THR-001",
+      "test_objective": "Verify 0% throttle at pedal release.",
+      "preconditions": [
+        "Ignition ON",
+        "Pedal fully released"
+      ],
+      "test_steps": [
+        "Monitor CAN ID 0x208",
+        "Decode throttle position"
+      ],
+      "expected_result": "Throttle position = 0%",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_ecm_thr_001(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_throttle(msg) == 0.0"
+    },
+    {
+      "test_case_id": "TC-ECM-THR-006",
+      "test_objective": "Verify full throttle.",
+      "preconditions": [
+        "Ignition ON",
+        "Pedal fully pressed"
+      ],
+      "test_steps": [
+        "Apply full throttle",
+        "Decode ECM_Throttle_Position"
+      ],
+      "expected_result": "Throttle position = 100%",
+      "test_type": "Boundary",
+      "python_test_script": "def test_tc_ecm_thr_006(can_bus):\n    msg = can_bus.recv(timeout=1.0)\n    assert decode_throttle(msg) == 100.0"
+    }
+  ]
+}

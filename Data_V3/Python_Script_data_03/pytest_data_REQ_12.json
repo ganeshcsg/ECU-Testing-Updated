@@ -1,0 +1,165 @@
+{
+  "requirement": {
+    "requirement_id": "GW-REQ-07",
+    "description": "The gateway shall periodically transmit the currently selected gear position for display and diagnostic purposes.",
+
+    "can_messages": [
+      {
+        "node": "TCM",
+        "arbitration_id": "0x230",
+        "message_name": "TCM_Gear_Status",
+        "signals": [
+          {
+            "name": "TCM_Current_Gear",
+            "start_bit": 0,
+            "length": 4,
+            "byte_order": "little_endian",
+            "description": "0=Neutral, 1-6 = Gear positions"
+          }
+        ]
+      },
+      {
+        "node": "GW",
+        "arbitration_id": "0x384",
+        "message_name": "GW_System_Overview",
+        "dlc": 8,
+        "signals": [
+          {
+            "name": "GWS_Gear_Position",
+            "start_bit": 24,
+            "length": 4,
+            "byte_order": "little_endian",
+            "description": "Forwarded gear position for display/diagnostics"
+          }
+        ]
+      }
+    ]
+  },
+
+  "test_cases": [
+
+    {
+      "test_case_id": "TC-GW-GEAR-001",
+      "test_objective": "Verify GW transmits NEUTRAL gear position correctly.",
+      "preconditions": [
+        "Ignition ON",
+        "TCM transmitting TCM_Gear_Status",
+        "CAN monitoring active"
+      ],
+      "test_steps": [
+        "Set TCM_Current_Gear = 0",
+        "Monitor GW_System_Overview (0x384)",
+        "Decode GWS_Gear_Position"
+      ],
+      "expected_result": "GWS_Gear_Position = 0 and periodic transmission observed",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_gear_001(can_bus):\n    msgs = collect_messages(can_bus, 0x384, 2)\n    assert msgs\n    for m in msgs:\n        assert decode_gws_gear_position(m) == 0"
+    },
+
+    {
+      "test_case_id": "TC-GW-GEAR-002",
+      "test_objective": "Verify GW transmits Gear 1 correctly.",
+      "preconditions": [
+        "Ignition ON",
+        "TCM transmitting gear data"
+      ],
+      "test_steps": [
+        "Set TCM_Current_Gear = 1",
+        "Monitor GW output"
+      ],
+      "expected_result": "GWS_Gear_Position = 1",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_gear_002(can_bus):\n    msgs = collect_messages(can_bus, 0x384, 2)\n    assert msgs\n    for m in msgs:\n        assert decode_gws_gear_position(m) == 1"
+    },
+
+    {
+      "test_case_id": "TC-GW-GEAR-003",
+      "test_objective": "Verify GW transmits Gear 2 correctly.",
+      "preconditions": [
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "Set TCM_Current_Gear = 2",
+        "Monitor GW output"
+      ],
+      "expected_result": "GWS_Gear_Position = 2",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_gear_003(can_bus):\n    msgs = collect_messages(can_bus, 0x384, 2)\n    assert msgs\n    for m in msgs:\n        assert decode_gws_gear_position(m) == 2"
+    },
+
+    {
+      "test_case_id": "TC-GW-GEAR-004",
+      "test_objective": "Verify GW transmits Gear 3 correctly.",
+      "preconditions": [
+        "Ignition ON",
+        "TCM active"
+      ],
+      "test_steps": [
+        "Set TCM_Current_Gear = 3",
+        "Monitor GW output"
+      ],
+      "expected_result": "GWS_Gear_Position = 3",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_gear_004(can_bus):\n    msgs = collect_messages(can_bus, 0x384, 2)\n    assert msgs\n    for m in msgs:\n        assert decode_gws_gear_position(m) == 3"
+    },
+
+    {
+      "test_case_id": "TC-GW-GEAR-005",
+      "test_objective": "Verify GW transmits Gear 4 correctly.",
+      "preconditions": [
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "Set TCM_Current_Gear = 4",
+        "Monitor GW output"
+      ],
+      "expected_result": "GWS_Gear_Position = 4",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_gear_005(can_bus):\n    msgs = collect_messages(can_bus, 0x384, 2)\n    assert msgs\n    for m in msgs:\n        assert decode_gws_gear_position(m) == 4"
+    },
+
+    {
+      "test_case_id": "TC-GW-GEAR-006",
+      "test_objective": "Verify GW transmits Gear 5 correctly.",
+      "preconditions": [
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "Set TCM_Current_Gear = 5",
+        "Monitor GW output"
+      ],
+      "expected_result": "GWS_Gear_Position = 5",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_gear_006(can_bus):\n    msgs = collect_messages(can_bus, 0x384, 2)\n    assert msgs\n    for m in msgs:\n        assert decode_gws_gear_position(m) == 5"
+    },
+
+    {
+      "test_case_id": "TC-GW-GEAR-007",
+      "test_objective": "Verify GW transmits Gear 6 correctly.",
+      "preconditions": [
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "Set TCM_Current_Gear = 6",
+        "Monitor GW output"
+      ],
+      "expected_result": "GWS_Gear_Position = 6",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_gear_007(can_bus):\n    msgs = collect_messages(can_bus, 0x384, 2)\n    assert msgs\n    for m in msgs:\n        assert decode_gws_gear_position(m) == 6"
+    },
+
+    {
+      "test_case_id": "TC-GW-GEAR-008",
+      "test_objective": "Verify periodic transmission of gear position.",
+      "preconditions": [
+        "Ignition ON"
+      ],
+      "test_steps": [
+        "Monitor GW_System_Overview for 3 seconds"
+      ],
+      "expected_result": "Multiple frames observed and gear value remains stable",
+      "test_type": "Timing",
+      "python_test_script": "def test_tc_gw_gear_008(can_bus):\n    msgs = collect_messages(can_bus, 0x384, 3)\n    assert len(msgs) >= 2\n    first = decode_gws_gear_position(msgs[0])\n    for m in msgs:\n        assert decode_gws_gear_position(m) == first"
+    }
+  ]
+}

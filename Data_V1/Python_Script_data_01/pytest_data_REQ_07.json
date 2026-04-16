@@ -1,0 +1,138 @@
+{
+  "requirement": {
+    "requirement_id": "REQ-07",
+    "description": "The ECM shall transmit the current vehicle speed on the CAN bus.",
+    "can_message": {
+      "arbitration_id": "0x200",
+      "signal": "Vehicle_Speed",
+      "byte_range": "0-1",
+      "bit_range": "0-15",
+      "scaling": 0.1,
+      "unit": "km/h",
+      "max_value": 300.0
+    },
+    "python_test_setup": "import os\nimport time\nimport pytest\nimport can\n\nECM_SPEED_CAN_ID = 0x200\nMIN_MSG_COUNT = 8\nSCALE = 0.1\nCOLLECTION_TIMEOUT = 2.0\n\ndef simulate_vehicle_speed(can_bus, speed_kmh: float):\n    \"\"\"Stimulation handled externally (CAPL/HIL). Placeholder for logic flow.\"\"\"\n    return\n\ndef collect_speed_messages(bus: can.Bus, duration_sec: float = 1.0):\n    end_time = time.time() + duration_sec\n    messages = []\n    while time.time() < end_time:\n        msg = bus.recv(timeout=0.1)\n        if msg and msg.arbitration_id == ECM_SPEED_CAN_ID:\n            messages.append(msg)\n    return messages\n\ndef decode_vehicle_speed(data_bytes: bytes) -> float:\n    if len(data_bytes) < 2:\n        raise ValueError(\"Invalid CAN payload length\")\n    raw = int.from_bytes(data_bytes[0:2], byteorder=\"little\", signed=False)\n    return round(raw * SCALE, 1)\n\n@pytest.fixture(scope=\"session\")\ndef can_bus():\n    interface = os.getenv(\"CAN_INTERFACE\", \"socketcan\")\n    channel = os.getenv(\"CAN_CHANNEL\", \"can0\")\n    bitrate = int(os.getenv(\"CAN_BITRATE\", \"500000\"))\n    bus = can.Bus(interface=interface, channel=channel, bitrate=bitrate)\n    yield bus\n    bus.shutdown()"
+  },
+  "test_cases": [
+    {
+      "test_case_id": "TC-VS-001",
+      "title": "Stationary Vehicle Speed",
+      "precondition": "Ignition ON, vehicle stationary",
+      "steps": ["Turn ignition ON", "Ensure vehicle speed is 0 km/h", "Monitor CAN ID 0x200", "Decode bits 0–15"],
+      "expected_result": "Vehicle_Speed = 0 km/h transmitted periodically",
+      "python_test_script": "def test_tc_vs_001_speed_zero(can_bus):\n    simulate_vehicle_speed(can_bus, 0)\n    msgs = collect_speed_messages(can_bus, COLLECTION_TIMEOUT)\n    assert len(msgs) >= MIN_MSG_COUNT\n    assert all(decode_vehicle_speed(m.data) == 0.0 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-VS-002",
+      "title": "Low Speed Verification",
+      "precondition": "Ignition ON",
+      "steps": ["Turn ignition ON", "Set vehicle speed to 10 km/h", "Monitor CAN ID 0x200", "Decode signal"],
+      "expected_result": "Vehicle_Speed = 10 km/h transmitted periodically",
+      "python_test_script": "def test_tc_vs_002_speed_10(can_bus):\n    simulate_vehicle_speed(can_bus, 10)\n    msgs = collect_speed_messages(can_bus, COLLECTION_TIMEOUT)\n    assert msgs\n    assert all(abs(decode_vehicle_speed(m.data) - 10.0) <= 0.1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-VS-003",
+      "title": "Medium Speed Verification",
+      "precondition": "Ignition ON",
+      "steps": ["Turn ignition ON", "Set vehicle speed to 50 km/h", "Monitor ECM_Vehicle_Speed", "Decode signal"],
+      "expected_result": "Vehicle_Speed = 50 km/h transmitted periodically",
+      "python_test_script": "def test_tc_vs_003_speed_50(can_bus):\n    simulate_vehicle_speed(can_bus, 50)\n    msgs = collect_speed_messages(can_bus, COLLECTION_TIMEOUT)\n    assert msgs\n    assert all(abs(decode_vehicle_speed(m.data) - 50.0) <= 0.1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-VS-004",
+      "title": "High Speed Verification",
+      "precondition": "Ignition ON",
+      "steps": ["Turn ignition ON", "Set vehicle speed to 100 km/h", "Observe ECM_Vehicle_Speed", "Decode signal"],
+      "expected_result": "Vehicle_Speed = 100 km/h transmitted periodically",
+      "python_test_script": "def test_tc_vs_004_speed_100(can_bus):\n    simulate_vehicle_speed(can_bus, 100)\n    msgs = collect_speed_messages(can_bus, COLLECTION_TIMEOUT)\n    assert all(abs(decode_vehicle_speed(m.data) - 100.0) <= 0.1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-VS-005",
+      "title": "Very High Speed Verification",
+      "precondition": "Ignition ON",
+      "steps": ["Turn ignition ON", "Set vehicle speed to 200 km/h", "Monitor ECM_Vehicle_Speed", "Decode signal"],
+      "expected_result": "Vehicle_Speed = 200 km/h transmitted periodically",
+      "python_test_script": "def test_tc_vs_005_speed_200(can_bus):\n    simulate_vehicle_speed(can_bus, 200)\n    msgs = collect_speed_messages(can_bus, COLLECTION_TIMEOUT)\n    assert all(abs(decode_vehicle_speed(m.data) - 200.0) <= 0.1 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-VS-006",
+      "title": "Maximum Allowed Speed",
+      "precondition": "Ignition ON",
+      "steps": ["Turn ignition ON", "Set vehicle speed to 300 km/h", "Monitor CAN ID 0x200", "Decode signal"],
+      "expected_result": "Vehicle_Speed = 300 km/h transmitted without overflow",
+      "python_test_script": "def test_tc_vs_006_speed_300(can_bus):\n    simulate_vehicle_speed(can_bus, 300)\n    msgs = collect_speed_messages(can_bus, COLLECTION_TIMEOUT)\n    assert any(decode_vehicle_speed(m.data) == 300.0 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-VS-007",
+      "title": "Speed Increase Transition",
+      "precondition": "Ignition ON",
+      "steps": ["Set vehicle speed to 0 km/h", "Increase vehicle speed to 50 km/h", "Monitor successive messages"],
+      "expected_result": "Vehicle_Speed updates from 0 km/h to 50 km/h",
+      "python_test_script": "def test_tc_vs_007_ramp_up(can_bus):\n    simulate_vehicle_speed(can_bus, 0)\n    time.sleep(0.5)\n    simulate_vehicle_speed(can_bus, 50)\n    msgs = collect_speed_messages(can_bus, COLLECTION_TIMEOUT)\n    speeds = [decode_vehicle_speed(m.data) for m in msgs]\n    assert 0.0 in speeds and 50.0 in speeds\n    assert speeds.index(50.0) > speeds.index(0.0)"
+    },
+    {
+      "test_case_id": "TC-VS-008",
+      "title": "Speed Decrease Transition",
+      "precondition": "Ignition ON",
+      "steps": ["Set vehicle speed to 80 km/h", "Reduce vehicle speed to 20 km/h", "Monitor ECM_Vehicle_Speed"],
+      "expected_result": "Vehicle_Speed updates correctly from 80 km/h to 20 km/h",
+      "python_test_script": "def test_tc_vs_008_ramp_down(can_bus):\n    simulate_vehicle_speed(can_bus, 80)\n    time.sleep(0.5)\n    simulate_vehicle_speed(can_bus, 20)\n    msgs = collect_speed_messages(can_bus, COLLECTION_TIMEOUT)\n    speeds = [decode_vehicle_speed(m.data) for m in msgs]\n    assert 80.0 in speeds and 20.0 in speeds\n    assert speeds.index(20.0) > speeds.index(80.0)"
+    },
+    {
+      "test_case_id": "TC-VS-009",
+      "title": "Constant Speed Stability",
+      "precondition": "Ignition ON",
+      "steps": ["Set vehicle speed to 60 km/h", "Monitor ECM_Vehicle_Speed for 10 frames", "Decode values"],
+      "expected_result": "Vehicle_Speed remains constant at 60 km/h",
+      "python_test_script": "def test_tc_vs_009_stability(can_bus):\n    simulate_vehicle_speed(can_bus, 60)\n    msgs = collect_speed_messages(can_bus, COLLECTION_TIMEOUT)\n    values = [decode_vehicle_speed(m.data) for m in msgs]\n    assert len(values) >= 10\n    assert all(v == 60.0 for v in values)"
+    },
+    {
+      "test_case_id": "TC-VS-010",
+      "title": "Transmission Periodicity",
+      "precondition": "Ignition ON",
+      "steps": ["Set valid vehicle speed (40 km/h)", "Monitor CAN traffic for 2 seconds", "Count received frames"],
+      "expected_result": "Multiple frames received continuously during period",
+      "python_test_script": "def test_tc_vs_010_periodicity(can_bus):\n    simulate_vehicle_speed(can_bus, 40)\n    msgs = collect_speed_messages(can_bus, 2.0)\n    assert len(msgs) >= 10"
+    },
+    {
+      "test_case_id": "TC-VS-011",
+      "title": "Over-speed Cap Verification",
+      "precondition": "Ignition ON",
+      "steps": ["Attempt to set vehicle speed to 350 km/h", "Monitor ECM_Vehicle_Speed", "Decode signal"],
+      "expected_result": "Vehicle_Speed value does not exceed 300.0 km/h",
+      "python_test_script": "def test_tc_vs_011_no_overflow(can_bus):\n    simulate_vehicle_speed(can_bus, 350)\n    msgs = collect_speed_messages(can_bus, COLLECTION_TIMEOUT)\n    assert all(decode_vehicle_speed(m.data) <= 300.0 for m in msgs)"
+    },
+    {
+      "test_case_id": "TC-VS-012",
+      "title": "Scaling Verification",
+      "precondition": "Ignition ON, speed 100 km/h",
+      "steps": ["Set speed to 100 km/h", "Capture raw hex value", "Apply 0.1 scaling"],
+      "expected_result": "Raw hex corresponds to 1000 decimal",
+      "python_test_script": "def test_tc_vs_012_scaling(can_bus):\n    simulate_vehicle_speed(can_bus, 100)\n    msgs = collect_speed_messages(can_bus, COLLECTION_TIMEOUT)\n    assert msgs\n    raw = int.from_bytes(msgs[0].data[0:2], byteorder=\"little\")\n    assert raw == 1000\n    assert (raw * SCALE) == 100.0"
+    },
+    {
+      "test_case_id": "TC-VS-013",
+      "title": "Correct CAN ID Verification",
+      "precondition": "Ignition ON",
+      "steps": ["Set vehicle speed to valid value", "Monitor all CAN traffic", "Identify Vehicle_Speed ID"],
+      "expected_result": "Vehicle_Speed signal is present only in CAN ID 0x200",
+      "python_test_script": "def test_tc_vs_013_correct_can_id(can_bus):\n    simulate_vehicle_speed(can_bus, 40)\n    end_time = time.time() + 1.0\n    while time.time() < end_time:\n        msg = can_bus.recv(timeout=0.1)\n        if msg and decode_vehicle_speed(msg.data) > 0:\n            assert msg.arbitration_id == 0x200"
+    },
+    {
+      "test_case_id": "TC-VS-014",
+      "title": "Ignition OFF Stop Transmission",
+      "precondition": "CAN tool active",
+      "steps": ["Confirm messages present while ON", "Turn ignition OFF", "Monitor CAN ID 0x200"],
+      "expected_result": "No ECM_Vehicle_Speed messages transmitted after OFF",
+      "python_test_script": "def test_tc_vs_014_ignition_off(can_bus):\n    # Stimulate ignition OFF externally\n    msgs = collect_speed_messages(can_bus, 2.0)\n    assert len(msgs) == 0"
+    },
+    {
+      "test_case_id": "TC-VS-015",
+      "title": "Payload Integrity Check",
+      "precondition": "Ignition ON",
+      "steps": ["Set vehicle speed to 70 km/h", "Capture 20 consecutive frames", "Decode and compare"],
+      "expected_result": "All frames contain consistent value 70.0 km/h",
+      "python_test_script": "def test_tc_vs_015_payload_integrity(can_bus):\n    simulate_vehicle_speed(can_bus, 70)\n    msgs = collect_speed_messages(can_bus, COLLECTION_TIMEOUT)\n    assert len(msgs) >= 20\n    assert all(decode_vehicle_speed(m.data) == 70.0 for m in msgs)"
+    }
+  ]
+}

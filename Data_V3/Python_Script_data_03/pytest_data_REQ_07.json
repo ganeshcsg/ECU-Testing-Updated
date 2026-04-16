@@ -1,0 +1,123 @@
+{
+  "requirement": {
+    "requirement_id": "GW-REQ-02",
+    "description": "The gateway ECU shall periodically receive powertrain-related signals such as vehicle speed, engine speed, gear position, wheel speed values, engine temperature, and clutch engagement status.",
+    "can_messages": [
+      {
+        "node": "ECM",
+        "arbitration_id": "0x208",
+        "message_name": "ECM_Powertrain_Data",
+        "signals": [
+          {
+            "name": "ECM_Vehicle_Speed",
+            "start_bit": 0,
+            "length": 16,
+            "unit": "km/h",
+            "valid_range": "0–260"
+          },
+          {
+            "name": "ECM_Engine_Speed",
+            "start_bit": 16,
+            "length": 16,
+            "unit": "rpm",
+            "valid_range": "0–9000"
+          },
+          {
+            "name": "ECM_Engine_Temp",
+            "start_bit": 40,
+            "length": 8,
+            "unit": "°C",
+            "valid_range": "-40–215"
+          }
+        ]
+      },
+      {
+        "node": "TCM",
+        "arbitration_id": "0x230",
+        "message_name": "TCM_Gear_Status",
+        "signals": [
+          {
+            "name": "TCM_Current_Gear",
+            "start_bit": 0,
+            "length": 4,
+            "valid_range": "0–6"
+          },
+          {
+            "name": "TCM_Shift_In_Progress",
+            "start_bit": 4,
+            "length": 1
+          },
+          {
+            "name": "TCM_Clutch_Engaged",
+            "start_bit": 5,
+            "length": 1
+          }
+        ]
+      },
+      {
+        "node": "ABS",
+        "arbitration_id": "0x2BC",
+        "message_name": "ABS_Wheel_Info",
+        "signals": [
+          {
+            "name": "Wheel_Speeds",
+            "description": "FL, FR, RL, RR wheel speeds",
+            "valid_range": "0–250 km/h"
+          }
+        ]
+      }
+    ]
+  },
+
+  "test_cases": [
+    {
+      "test_case_id": "TC-GW-PT-001",
+      "test_objective": "Verify Gateway receives vehicle speed periodically.",
+      "preconditions": [
+        "Ignition ON",
+        "ECM transmitting powertrain data",
+        "CAN logger connected"
+      ],
+      "test_steps": [
+        "Power ON vehicle",
+        "Monitor CAN ID 0x208",
+        "Extract ECM_Vehicle_Speed"
+      ],
+      "expected_result": "Vehicle speed within 0–260 km/h",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_pt_001_vehicle_speed(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_ECM_POWERTRAIN, 2)\n    assert msgs\n    for msg in msgs:\n        assert 0 <= decode_vehicle_speed(msg) <= 260"
+    },
+    {
+      "test_case_id": "TC-GW-PT-002",
+      "test_objective": "Verify Gateway receives engine speed periodically.",
+      "preconditions": [
+        "Ignition ON",
+        "ECM active"
+      ],
+      "test_steps": [
+        "Monitor CAN ID 0x208",
+        "Extract ECM_Engine_Speed"
+      ],
+      "expected_result": "Engine speed within 0–9000 rpm",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_pt_002_engine_speed(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_ECM_POWERTRAIN, 2)\n    assert msgs\n    for msg in msgs:\n        assert 0 <= decode_engine_speed(msg) <= 9000"
+    },
+    {
+      "test_case_id": "TC-GW-PT-005",
+      "test_objective": "Verify Gateway receives ABS wheel speeds.",
+      "preconditions": [
+        "Ignition ON",
+        "ABS active",
+        "Vehicle moving"
+      ],
+      "test_steps": [
+        "Drive vehicle",
+        "Monitor CAN ID 0x2BC",
+        "Extract all wheel speeds"
+      ],
+      "expected_result": "All wheel speeds within 0–250 km/h",
+      "test_type": "Functional",
+      "python_test_script": "def test_tc_gw_pt_005_wheel_speeds(can_bus):\n    msgs = collect_messages(can_bus, MSG_ID_ABS_WHEEL, 2)\n    assert msgs\n    for msg in msgs:\n        assert 0 <= decode_wheel_fl(msg) <= 250"
+    }
+  ]
+}

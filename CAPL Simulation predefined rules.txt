@@ -1,0 +1,53 @@
+CAPL Simulation Script – Generic Predefined Rules (Authoritative)
+
+1. File-Level Structural Rules (Mandatory)
+- Exactly one CAPL file = one simulation node. The CAPL node represents one logical ECU or one simulator ECU.
+- Do NOT mix multiple ECU responsibilities unless explicitly stated in requirements.
+- Order of sections is fixed: includes → variables → on start → timers → on message → on timer → on key.
+- Any deviation = incorrect script.
+- DBC is the single source of truth. All message names, signal names, scaling, enums must match DBC exactly.
+- Never invent messages, signals, or units.
+
+2. variables Block – When and How to Use (Strict Rules)
+Use variables ONLY for: State persistence (ECU internal state, previous signal values for edge detection, alive counters, mode flags); Timers (msTimer); Counters and flags (int aliveCounter = 0; etc.).
+DO NOT put in variables: Temporary variables used only inside one event; Message objects (declare locally in on timer or on message); Test verdict logic.
+Hard Rule: If a value must survive beyond one event → variables. If not → local variable.
+
+3. on start Block – Purpose and Constraints
+Use on start ONLY for: Initial ECU state; Starting periodic timers; Default signal initialization (only if ECU transmits at startup).
+DO NOT in on start: Send event-triggered messages; Simulate faults; React to test cases.
+Hard Rule: on start = power-up behavior only. No runtime logic allowed.
+
+4. on message Block – Event-Driven ECU Behavior
+Use on message ONLY when: ECU reacts to a received CAN message. Requirement says "When X is received…", "Upon change of…", "If signal transitions from A to B…"
+Mandatory Rules: Always use this.SignalName; Always perform edge detection when reacting to changes (store previous value, compare); Never transmit periodically from on message; Never use timers here.
+DO NOT: Use delays; Use setTimer() unless explicitly required; Combine multiple unrelated requirements.
+
+5. on timer Block – Periodic and Delayed Behavior
+Use on timer ONLY for: Periodic transmissions (alive, cyclic status, heartbeat counters); Delayed reactions (timeout supervision, deferred actions).
+Hard Rules: Every periodic requirement → exactly one timer; Timer must re-arm itself (setTimer); Timing must match requirement exactly.
+DO NOT: React to incoming messages here; Handle key presses; Change ECU modes unless requirement explicitly states timeout logic.
+
+6. on key Block – Test Control Only
+Use on key ONLY for: Manual stimulation during testing; Forcing ECU states; Debug overrides.
+Strict Separation Rule: on key is NOT ECU behavior. It is test bench control only.
+DO NOT: Encode production logic; Replace message-based logic with keys; Depend on keys for requirement compliance.
+
+7. Mapping ECU Requirements → CAPL Blocks (Non-Optional)
+Periodic transmit → on timer
+React to received CAN → on message
+Power-up behavior → on start
+Alive / heartbeat → on timer
+Event-triggered transmit → on message
+Manual stimulation → on key
+
+8. Alive Counter Rules (Mandatory Pattern)
+Counter increments modulo defined bit length. Sent only from timer. Reset only on power cycle.
+Example: aliveCounter = (aliveCounter + 1) % 16;
+
+9. Message Transmission Rules (Absolute)
+Every transmitted message: Must be defined in DBC; Must use a local message object.
+Use output(msg) only. No hardcoded CAN IDs.
+
+10. Forbidden Practices (Immediate Rejection)
+Mixing test logic and ECU logic; Using while(1) loops; Sending periodic messages from on message; Ignoring edge detection; Using magic numbers instead of requirement timing; Using keys to satisfy requirements.
