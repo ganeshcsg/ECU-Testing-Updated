@@ -1,0 +1,35 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ecu_user
+      POSTGRES_PASSWORD: ecusecretpassword
+      POSTGRES_DB: ecu_testing
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecu_user -d ecu_testing"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://ecu_user:secret@db:5432/ecu_testing
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./qdrant_data:/app/qdrant_data
+
+volumes:
+  postgres_data:
