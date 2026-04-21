@@ -10,11 +10,29 @@ By default uses in-memory Qdrant (no server needed). To use a Qdrant server, set
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
 from rag_vector_store import Chunk, RetrievalResult
+
+# Maps Qdrant metadata 'source' tags → PostgreSQL rag_documents.source_type values.
+# All values must be in the schema's CHECK constraint.
+_PG_SOURCE_MAP: Dict[str, str] = {
+    "requirement":              "requirement",
+    "user_requirement":         "requirement",
+    "dbc":                      "capl_message",
+    "dbc_context":              "capl_message",
+    "dbc_message":              "capl_message",
+    "capl":                     "capl_script",
+    "capl_implementation":      "capl_script",
+    "test_case":                "test_case",
+    "python":                   "python_script",
+    "python_test_script":       "python_script",
+    "python_test_script_full":  "python_script",
+}
 
 # Qdrant
 try:
@@ -173,6 +191,107 @@ class RAGVectorStore:
         self.model = self
         self.collection = self
 
+        # Optional PostgreSQL tracking (set via attach_db)
+        self._pg_conn: Optional[Any] = None
+        self._pg_dv_id: Optional[int] = None
+
+    # ── PostgreSQL integration ─────────────────────────────────────────────────
+
+    def attach_db(self, conn: Any, dv_id: int) -> None:
+        """
+        Attach a PostgreSQL connection so that every _add_document call also
+        writes to rag_documents / rag_chunks / rag_chunk_sync.
+
+        *conn* must be opened with autocommit=True (pg_bridge.init_for_app does this).
+        """
+        self._pg_conn = conn
+        self._pg_dv_id = dv_id
+
+    def _pg_write(self, text: str, source: str, point_id: str) -> None:
+        """
+        Persist one Qdrant chunk to PostgreSQL (rag_documents → rag_chunks →
+        rag_chunk_sync).  Silently swallows all errors so the app never fails
+        because of a DB issue.
+        """
+        if not self._pg_conn or not self._pg_dv_id:
+            return
+        try:
+            pg_source_type = _PG_SOURCE_MAP.get(source, "external_doc")
+            # Include dv_id+source_type in hash so identical text with different
+            # source types gets distinct chunk rows rather than a silent collision.
+            chunk_seed = f"{self._pg_dv_id}:{pg_source_type}:{text}"
+            doc_hash = hashlib.sha256(chunk_seed.encode()).hexdigest()
+            meta_json = json.dumps({"app_source": source, "qdrant_point_id": point_id})
+
+            cur = self._pg_conn.cursor()
+
+            # rag_documents ──────────────────────────────────────────────────
+            cur.execute(
+                """
+                INSERT INTO rag_documents
+                    (dataset_version_id, source_type, source_entity_type,
+                     document_text, document_hash, metadata)
+                VALUES (%s, %s, 'file', %s, %s, %s)
+                ON CONFLICT (dataset_version_id, source_type, document_hash) DO NOTHING
+                RETURNING id
+                """,
+                (self._pg_dv_id, pg_source_type, text, doc_hash, meta_json),
+            )
+            row = cur.fetchone()
+            if not row:
+                cur.execute(
+                    "SELECT id FROM rag_documents "
+                    "WHERE dataset_version_id=%s AND source_type=%s AND document_hash=%s",
+                    (self._pg_dv_id, pg_source_type, doc_hash),
+                )
+                row = cur.fetchone()
+            if not row:
+                cur.close()
+                return
+            doc_id = row[0]
+
+            # rag_chunks ─────────────────────────────────────────────────────
+            cur.execute(
+                """
+                INSERT INTO rag_chunks
+                    (rag_document_id, chunk_index, chunk_text, chunk_hash,
+                     token_count, metadata)
+                VALUES (%s, 0, %s, %s, %s, %s)
+                ON CONFLICT (chunk_hash) DO NOTHING
+                RETURNING id
+                """,
+                (doc_id, text, doc_hash, len(text) // 4, meta_json),
+            )
+            chunk_row = cur.fetchone()
+            if not chunk_row:
+                cur.execute("SELECT id FROM rag_chunks WHERE chunk_hash=%s", (doc_hash,))
+                chunk_row = cur.fetchone()
+            if not chunk_row:
+                cur.close()
+                return
+            chunk_id = chunk_row[0]
+
+            # rag_chunk_sync ─────────────────────────────────────────────────
+            cur.execute(
+                """
+                INSERT INTO rag_chunk_sync
+                    (rag_chunk_id, vector_store, collection_name, point_id,
+                     embedding_model, sync_status, synced_at)
+                VALUES (%s, 'qdrant', %s, %s, %s, 'synced', NOW())
+                ON CONFLICT (rag_chunk_id, vector_store, collection_name) DO UPDATE
+                    SET point_id      = EXCLUDED.point_id,
+                        sync_status   = 'synced',
+                        synced_at     = NOW(),
+                        error_message = NULL
+                """,
+                (chunk_id, self._collection, point_id, self._embedding_model_name),
+            )
+            cur.close()
+        except Exception as exc:
+            print(f"[DEBUG PG] _pg_write non-fatal error: {exc}")
+
+    # ── Encoding ──────────────────────────────────────────────────────────────
+
     def encode(self, texts: List[str], show_progress_bar: bool = False) -> List[List[float]]:
         """Encode texts to vectors using the sentence-transformers model."""
         if not texts:
@@ -208,10 +327,11 @@ class RAGVectorStore:
             self._id_to_content[doc_id] = doc
         self._client.upsert(collection_name=self._collection, points=points)
         self._document_count += len(ids)
-        for m in metadatas:
+        for doc_id, doc, m in zip(ids, documents, metadatas):
             t = m.get("source") or m.get("type") or ""
             if t:
                 self._stats_by_type[t] = self._stats_by_type.get(t, 0) + 1
+            self._pg_write(doc, t, doc_id)
 
     def _add_document(self, text: str, base_metadata: Dict[str, str]) -> str:
         if not text.strip():
@@ -229,6 +349,8 @@ class RAGVectorStore:
         t = meta.get("source") or meta.get("type") or ""
         if t:
             self._stats_by_type[t] = self._stats_by_type.get(t, 0) + 1
+        # Mirror to PostgreSQL when a DB connection is attached
+        self._pg_write(text, t, doc_id)
         return doc_id
 
     def _rehydrate_from_persistent(self) -> None:
@@ -410,6 +532,26 @@ class RAGVectorStore:
 
     def clear(self) -> None:
         """Delete and recreate the collection, then clear local content cache."""
+        # Mark all synced PostgreSQL chunks for this collection as stale
+        if self._pg_conn and self._pg_dv_id:
+            try:
+                cur = self._pg_conn.cursor()
+                cur.execute(
+                    """
+                    UPDATE rag_chunk_sync rcs
+                    SET sync_status = 'stale'
+                    FROM rag_chunks rc
+                    JOIN rag_documents rd ON rd.id = rc.rag_document_id
+                    WHERE rcs.rag_chunk_id = rc.id
+                      AND rcs.collection_name = %s
+                      AND rd.dataset_version_id = %s
+                      AND rcs.sync_status = 'synced'
+                    """,
+                    (self._collection, self._pg_dv_id),
+                )
+                cur.close()
+            except Exception as exc:
+                print(f"[DEBUG PG] clear stale-mark non-fatal: {exc}")
         try:
             if self._client.collection_exists(self._collection):
                 self._client.delete_collection(self._collection)
@@ -461,6 +603,7 @@ class ExtendedRAGVectorStore(RAGVectorStore):
         self._id_to_content[doc_id] = test_case_text
         self._document_count += 1
         self._stats_by_type["test_case"] = self._stats_by_type.get("test_case", 0) + 1
+        self._pg_write(test_case_text, "test_case", doc_id)
         return doc_id
 
     def add_python_script(self, python_script: str, metadata: Optional[Dict] = None) -> Optional[str]:
@@ -481,6 +624,7 @@ class ExtendedRAGVectorStore(RAGVectorStore):
         self._id_to_content[doc_id] = python_script
         self._document_count += 1
         self._stats_by_type["python"] = self._stats_by_type.get("python", 0) + 1
+        self._pg_write(python_script, "python", doc_id)
         return doc_id
 
     def retrieve_test_cases(self, query: str, top_k: int = 3, requirement_id: Optional[str] = None) -> RetrievalResult:

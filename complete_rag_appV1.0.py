@@ -3387,6 +3387,21 @@ def _record_evaluation_run(
             },
         }
         _append_eval_entry(entry)
+
+        # Also persist to PostgreSQL generated_artifacts when DB is available
+        try:
+            if _global_pg_conn is not None:
+                from services.data_pipeline import pg_bridge as _pg_bridge
+                _pg_bridge.record_artifact(
+                    conn=_global_pg_conn,
+                    requirement=requirement,
+                    dbc_summary=dbc_ctx.raw_dbc_summary,
+                    test_cases=test_cases,
+                    capl_code=capl_script,
+                    llm_model=st.session_state.get("llm_model"),
+                )
+        except Exception as _pg_err:
+            _log_debug(f"DB artifact record skipped: {_pg_err}")
     except Exception as e:
         _log_debug(f"Failed to record evaluation run: {e}")
 
@@ -3445,9 +3460,14 @@ def load_data_v1_into_rag(rag_store: ExtendedRAGVectorStore, data_v1_path: Optio
 _global_rag_store: Optional[ExtendedRAGVectorStore] = None
 _global_rag_loaded_count: int = 0
 
+# Process-global PostgreSQL connection (optional — None when DATABASE_URL is not set).
+# Kept alive for the process lifetime so we don't reconnect on every Streamlit rerun.
+_global_pg_conn: Optional[Any] = None
+_global_pg_dv_id: Optional[int] = None
+
 
 def main():
-    global _global_rag_store, _global_rag_loaded_count
+    global _global_rag_store, _global_rag_loaded_count, _global_pg_conn, _global_pg_dv_id
 
     st.set_page_config(page_title="AI Powered ECU Testing", layout="wide")
     
@@ -3464,9 +3484,29 @@ def main():
         n_loaded = _global_rag_loaded_count
         st.session_state["rag_store"] = rag_store
         st.session_state["rag_data_v1_loaded"] = n_loaded
+        # Re-attach DB connection if available (session_state was cleared on refresh)
+        if _global_pg_conn is not None and rag_store._pg_conn is None:
+            rag_store.attach_db(_global_pg_conn, _global_pg_dv_id)
     else:
         with st.spinner("Loading..."):
             rag_store = ExtendedRAGVectorStore(cache_dir="./rag_cache", path="./qdrant_data")
+
+            # ── PostgreSQL init (optional) ─────────────────────────────────
+            # Must happen BEFORE load_data_v1_into_rag so _pg_write is called
+            # for each chunk as it is upserted into Qdrant.
+            if _global_pg_conn is None:
+                try:
+                    from services.data_pipeline import pg_bridge as _pg_bridge
+                    if _pg_bridge.is_db_configured():
+                        _pg_conn, _pg_dv_id = _pg_bridge.init_for_app(Path(__file__).parent)
+                        if _pg_conn is not None and _pg_dv_id is not None:
+                            rag_store.attach_db(_pg_conn, _pg_dv_id)
+                            _global_pg_conn = _pg_conn
+                            _global_pg_dv_id = _pg_dv_id
+                            _log_debug(f"PostgreSQL connected (dv_id={_pg_dv_id})")
+                except Exception as _pg_err:
+                    _log_debug(f"PostgreSQL init skipped: {_pg_err}")
+
             stats = rag_store.get_stats()
             n_loaded = stats["total_documents"]
             if n_loaded == 0:
