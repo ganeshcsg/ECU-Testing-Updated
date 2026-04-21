@@ -13,7 +13,14 @@ from __future__ import annotations
 import os
 import re
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Generator
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+except ImportError:
+    pass
 
 try:
     import psycopg2

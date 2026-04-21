@@ -285,7 +285,7 @@ def run_validation(conn, base_dir: Path = BASE_DIR, verbose: bool = False) -> bo
         if job["started_at"] and job["completed_at"]:
             delta = job["completed_at"] - job["started_at"]
             duration = f" ({int(delta.total_seconds())}s)"
-        print(f"  [{job['id']}] {job['job_type']} → {job['status']}{duration} "
+        print(f"  [{job['id']}] {job['job_type']} -> {job['status']}{duration} "
               f"files={job['files_processed']}/{job['files_discovered']} "
               f"created={job['records_created']}")
         if job["error_summary"] and verbose:
