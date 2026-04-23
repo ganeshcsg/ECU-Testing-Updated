@@ -24,7 +24,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+psycopg2://ecu_user:secret@db:5432/ecu_testing
+      DATABASE_URL: postgresql+psycopg2://ecu_user:ecusecretpassword@db:5432/ecu_testing
     depends_on:
       db:
         condition: service_healthy

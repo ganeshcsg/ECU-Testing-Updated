@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Qdrant runtime data (lock file held by running process; full data rebuilt on startup)
+qdrant_data/.lock
+qdrant_data/meta.json
+qdrant_data/collection/
+
+# Logs & installs
+*.log
+.venv_install.log
+
+# Environment (contains secrets — commit carefully)
+# .env   ← intentionally NOT ignored so DATABASE_URL etc are version-controlled
+
+# Node / React build artefacts
+frontend/node_modules/
+frontend/dist/
+
+# Claude Code internal
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db

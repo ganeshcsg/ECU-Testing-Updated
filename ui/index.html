@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ECU Testing AI</title>
+  <style>
+    :root {
+      --indigo: #4f46e5; --indigo-dark: #4338ca; --indigo-light: #eef2ff;
+      --green: #16a34a; --green-light: #dcfce7;
+      --red: #dc2626; --red-light: #fee2e2;
+      --amber: #d97706; --amber-light: #fef3c7;
+      --slate-50: #f8fafc; --slate-100: #f1f5f9; --slate-200: #e2e8f0;
+      --slate-300: #cbd5e1; --slate-400: #94a3b8; --slate-500: #64748b;
+      --slate-600: #475569; --slate-700: #334155; --slate-900: #0f172a;
+      --white: #ffffff;
+      --radius: 8px;
+      --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+      --shadow-md: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -2px rgba(0,0,0,.08);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -4px rgba(0,0,0,.08);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; background: var(--slate-100); color: var(--slate-900); min-height: 100vh; }
+
+    /* ── Header ── */
+    header { background: var(--indigo); color: white; height: 56px; display: flex; align-items: center; padding: 0 24px; gap: 24px; box-shadow: var(--shadow-md); position: sticky; top: 0; z-index: 100; }
+    .brand { font-size: 17px; font-weight: 700; letter-spacing: -.3px; flex: 1; }
+    nav { display: flex; gap: 4px; }
+    .nav-btn { background: none; border: none; color: rgba(255,255,255,.75); padding: 6px 14px; border-radius: var(--radius); cursor: pointer; font-size: 14px; font-weight: 500; transition: all .15s; }
+    .nav-btn:hover { background: rgba(255,255,255,.15); color: white; }
+    .nav-btn.active { background: rgba(255,255,255,.2); color: white; }
+
+    /* ── Pages ── */
+    .page { display: none; padding: 24px; }
+    .page.active { display: block; }
+
+    /* ── Layout ── */
+    .gen-layout { display: grid; grid-template-columns: 320px 1fr; gap: 20px; max-width: 1400px; margin: 0 auto; }
+    .sidebar { display: flex; flex-direction: column; gap: 16px; }
+    @media (max-width: 768px) { .gen-layout { grid-template-columns: 1fr; } }
+
+    /* ── Card ── */
+    .card { background: var(--white); border: 1px solid var(--slate-200); border-radius: var(--radius); box-shadow: var(--shadow); }
+    .card-header { padding: 13px 16px; border-bottom: 1px solid var(--slate-200); font-weight: 600; font-size: 13px; color: var(--slate-700); display: flex; align-items: center; gap: 8px; }
+    .card-body { padding: 14px 16px; }
+    .step-num { width: 22px; height: 22px; background: var(--indigo-light); color: var(--indigo); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+
+    /* ── Drop zone ── */
+    .drop-zone { border: 2px dashed var(--slate-200); border-radius: var(--radius); padding: 20px; text-align: center; cursor: pointer; transition: all .15s; background: var(--slate-50); }
+    .drop-zone:hover, .drop-zone.drag-over { border-color: var(--indigo); background: var(--indigo-light); }
+    .drop-zone.has-file { border-style: solid; border-color: var(--green); background: var(--green-light); }
+    .drop-zone input[type="file"] { display: none; }
+    .drop-icon { font-size: 28px; margin-bottom: 8px; }
+    .drop-text { font-size: 13px; color: var(--slate-500); }
+    .drop-text strong { color: var(--indigo); }
+    .drop-hint { font-size: 11px; color: var(--slate-400); margin-top: 4px; }
+    .file-selected { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+    .file-name { font-weight: 500; flex: 1; word-break: break-all; text-align: left; }
+    .btn-clear { background: none; border: none; color: var(--slate-400); cursor: pointer; padding: 2px 6px; border-radius: 4px; font-size: 15px; line-height: 1; }
+    .btn-clear:hover { color: var(--red); background: var(--red-light); }
+
+    /* ── Requirements ── */
+    .req-actions { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .req-count { font-size: 12px; color: var(--slate-500); margin-left: auto; }
+    .req-list { max-height: 240px; overflow-y: auto; border: 1px solid var(--slate-200); border-radius: var(--radius); }
+    .req-item { display: flex; align-items: flex-start; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--slate-100); cursor: pointer; transition: background .1s; }
+    .req-item:last-child { border-bottom: none; }
+    .req-item:hover { background: var(--slate-50); }
+    .req-item.checked { background: var(--indigo-light); }
+    .req-item input[type="checkbox"] { margin-top: 2px; accent-color: var(--indigo); cursor: pointer; flex-shrink: 0; }
+    .req-text { font-size: 13px; line-height: 1.4; }
+
+    /* ── Buttons ── */
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius); font-size: 14px; font-weight: 500; cursor: pointer; transition: all .15s; border: 1px solid transparent; white-space: nowrap; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-primary { background: var(--indigo); color: white; border-color: var(--indigo); }
+    .btn-primary:not(:disabled):hover { background: var(--indigo-dark); }
+    .btn-danger { background: var(--red); color: white; border-color: var(--red); }
+    .btn-secondary { background: white; color: var(--slate-700); border-color: var(--slate-200); }
+    .btn-secondary:not(:disabled):hover { background: var(--slate-50); border-color: var(--slate-400); }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .btn-full { width: 100%; }
+
+    /* ── Progress steps ── */
+    .progress-section { margin-bottom: 20px; }
+    .progress-steps { display: flex; align-items: flex-start; }
+    .prog-step { display: flex; flex-direction: column; align-items: center; flex: 1; position: relative; }
+    .prog-step:not(:last-child)::after { content: ''; position: absolute; top: 15px; left: 50%; width: 100%; height: 2px; background: var(--slate-200); z-index: 0; }
+    .prog-step.done:not(:last-child)::after { background: var(--green); }
+    .prog-step.active:not(:last-child)::after { background: var(--indigo); }
+    .prog-icon { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid var(--slate-200); background: white; z-index: 1; font-size: 13px; transition: all .2s; }
+    .prog-step.pending .prog-icon { border-color: var(--slate-200); color: var(--slate-400); }
+    .prog-step.active .prog-icon { border-color: var(--indigo); color: var(--indigo); background: var(--indigo-light); }
+    .prog-step.done .prog-icon { border-color: var(--green); background: var(--green); color: white; }
+    .prog-step.error .prog-icon { border-color: var(--red); background: var(--red); color: white; }
+    .prog-label { font-size: 11px; color: var(--slate-400); margin-top: 6px; text-align: center; }
+    .prog-step.active .prog-label { color: var(--indigo); font-weight: 600; }
+    .prog-step.done .prog-label { color: var(--green); }
+    .prog-msg { font-size: 12px; color: var(--slate-500); margin-top: 10px; text-align: center; min-height: 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spin { animation: spin .7s linear infinite; display: inline-block; }
+
+    /* ── Live streaming indicator ── */
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; display: inline-block; animation: pulse 1.2s ease infinite; margin-right: 6px; }
+    .live-badge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 600; color: #16a34a; background: #dcfce7; padding: 2px 8px; border-radius: 12px; }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; border-bottom: 2px solid var(--slate-200); margin-bottom: 16px; }
+    .tab-btn { background: none; border: none; padding: 9px 16px; font-size: 14px; font-weight: 500; color: var(--slate-500); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .15s; }
+    .tab-btn:hover { color: var(--slate-900); }
+    .tab-btn.active { color: var(--indigo); border-bottom-color: var(--indigo); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ── Req tabs (multi) ── */
+    .req-tabs-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+    .req-tab-pill { padding: 4px 12px; border-radius: 20px; border: 1px solid var(--slate-200); background: white; font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s; color: var(--slate-500); }
+    .req-tab-pill:hover { border-color: var(--indigo); color: var(--indigo); }
+    .req-tab-pill.active { background: var(--indigo); color: white; border-color: var(--indigo); }
+    .req-tab-pill.done { border-color: var(--green); }
+    .req-tab-pill.active.done { background: var(--green); border-color: var(--green); }
+
+    /* ── Test cases ── */
+    .tc-list { display: flex; flex-direction: column; gap: 10px; }
+    .tc-card { border: 1px solid var(--slate-200); border-radius: var(--radius); overflow: hidden; }
+    .tc-header { display: flex; align-items: center; gap: 8px; padding: 11px 14px; cursor: pointer; background: var(--slate-50); transition: background .1s; user-select: none; }
+    .tc-header:hover { background: var(--slate-100); }
+    .tc-id { font-family: monospace; font-size: 12px; font-weight: 700; color: var(--slate-600); flex-shrink: 0; }
+    .tc-objective { font-size: 13px; flex: 1; color: var(--slate-700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tc-chevron { color: var(--slate-400); font-size: 11px; transition: transform .2s; flex-shrink: 0; }
+    .tc-card.open .tc-chevron { transform: rotate(180deg); }
+    .tc-body { display: none; padding: 14px 16px; border-top: 1px solid var(--slate-100); font-size: 13px; line-height: 1.6; background: white; }
+    .tc-card.open .tc-body { display: block; }
+    .tc-field { margin-bottom: 12px; }
+    .tc-field:last-child { margin-bottom: 0; }
+    .tc-field-label { font-weight: 700; font-size: 11px; color: var(--slate-500); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+    .tc-field-value { color: var(--slate-800); }
+    .tc-ol { padding-left: 20px; margin: 0; }
+    .tc-ol li { margin-bottom: 4px; color: var(--slate-700); }
+
+    /* ── TC stream animation ── */
+    @keyframes tc-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .tc-card { animation: tc-in .3s ease both; }
+
+    /* ── Badge ── */
+    .badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+    .badge-pos  { background: var(--green-light); color: #15803d; }
+    .badge-neg  { background: var(--red-light);   color: #b91c1c; }
+    .badge-edge { background: var(--amber-light);  color: #92400e; }
+    .badge-info { background: var(--indigo-light); color: var(--indigo); }
+
+    /* ── Toolbar row ── */
+    .toolbar-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+    .toolbar-label { font-size: 12px; color: var(--slate-500); font-weight: 500; }
+    .toolbar-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    /* ── CAPL ── */
+    .capl-pre { background: #1e1e1e; color: #d4d4d4; font-family: 'Consolas', 'Courier New', monospace; font-size: 12.5px; line-height: 1.6; padding: 16px; border-radius: var(--radius); overflow: auto; max-height: 520px; white-space: pre; tab-size: 4; }
+    @keyframes capl-in { from { opacity: 0; } to { opacity: 1; } }
+    .capl-pre.appeared { animation: capl-in .5s ease; }
+
+    /* ── Empty state ── */
+    .empty-state { text-align: center; padding: 64px 24px; color: var(--slate-400); }
+    .empty-icon { font-size: 48px; margin-bottom: 16px; }
+    .empty-title { font-size: 16px; font-weight: 600; color: var(--slate-500); margin-bottom: 6px; }
+    .empty-desc { font-size: 13px; }
+
+    /* ── History ── */
+    .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .page-title { font-size: 20px; font-weight: 700; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; color: var(--slate-500); text-transform: uppercase; letter-spacing: .4px; border-bottom: 2px solid var(--slate-200); background: var(--slate-50); white-space: nowrap; }
+    td { padding: 12px 14px; border-bottom: 1px solid var(--slate-100); font-size: 13px; vertical-align: top; }
+    tbody tr:hover td { background: var(--slate-50); }
+    .req-cell { max-width: 360px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .id-cell { font-family: monospace; color: var(--slate-500); white-space: nowrap; }
+
+    /* ── Modal ── */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; display: flex; align-items: flex-start; justify-content: flex-end; }
+    .modal-overlay.hidden { display: none; }
+    .modal { background: white; width: min(640px, 100vw); height: 100vh; display: flex; flex-direction: column; box-shadow: var(--shadow-lg); }
+    .modal-header { padding: 16px 20px; border-bottom: 1px solid var(--slate-200); display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .modal-title { font-size: 16px; font-weight: 700; }
+    .modal-subtitle { font-size: 12px; color: var(--slate-500); margin-top: 3px; line-height: 1.45; max-height: 52px; overflow: hidden; }
+    .btn-close { background: none; border: none; font-size: 20px; color: var(--slate-400); cursor: pointer; padding: 0 4px; line-height: 1; }
+    .btn-close:hover { color: var(--slate-700); }
+    .modal-body { flex: 1; overflow-y: auto; padding: 20px; }
+
+    /* ── Feedback ── */
+    .stars { display: flex; gap: 4px; margin-bottom: 12px; }
+    .star { font-size: 30px; cursor: pointer; color: var(--slate-300); transition: color .1s; line-height: 1; }
+    .star.on { color: #f59e0b; }
+    .feedback-textarea { width: 100%; padding: 9px 12px; border: 1px solid var(--slate-200); border-radius: var(--radius); font-family: inherit; font-size: 13px; resize: vertical; min-height: 90px; margin-bottom: 12px; }
+    .feedback-textarea:focus { outline: none; border-color: var(--indigo); }
+
+    /* ── Status dot ── */
+    .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+    .dot-ok { background: var(--green); } .dot-err { background: var(--red); } .dot-pend { background: var(--slate-400); }
+
+    /* ── Toast ── */
+    #toasts { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 8px; z-index: 999; pointer-events: none; }
+    .toast { padding: 11px 16px; border-radius: var(--radius); box-shadow: var(--shadow-md); font-size: 13px; font-weight: 500; max-width: 340px; animation: slide-in .2s ease; pointer-events: auto; }
+    @keyframes slide-in { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .toast-success { background: #15803d; color: white; }
+    .toast-error { background: var(--red); color: white; }
+    .toast-info { background: var(--indigo); color: white; }
+
+    /* ── Misc ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: var(--slate-300); border-radius: 3px; }
+    .results-inner { padding: 16px; }
+    .tc-counter { font-size: 12px; color: var(--slate-500); margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brand">⚙ ECU Testing AI</div>
+  <nav>
+    <button class="nav-btn active" id="nav-generate" onclick="showPage('generate')">Generate</button>
+    <button class="nav-btn" id="nav-history" onclick="showPage('history')">History</button>
+  </nav>
+</header>
+
+<!-- ═══════════ GENERATE PAGE ═══════════ -->
+<div id="page-generate" class="page active">
+  <div class="gen-layout">
+
+    <!-- LEFT SIDEBAR -->
+    <div class="sidebar">
+
+      <!-- Step 1 — DBC -->
+      <div class="card">
+        <div class="card-header"><span class="step-num">1</span> Upload DBC File</div>
+        <div class="card-body">
+          <div class="drop-zone" id="dbc-zone"
+               onclick="document.getElementById('dbc-input').click()"
+               ondragover="onDragOver(event,'dbc-zone')"
+               ondragleave="onDragLeave('dbc-zone')"
+               ondrop="onDrop(event,'dbc')">
+            <input type="file" id="dbc-input" accept=".dbc" onchange="handleFile(this,'dbc')">
+            <div id="dbc-ph">
+              <div class="drop-icon">📄</div>
+              <div class="drop-text"><strong>Click or drag</strong> a .dbc file</div>
+              <div class="drop-hint">CAN database file (.dbc)</div>
+            </div>
+            <div id="dbc-sel" style="display:none" class="file-selected">
+              <span style="font-size:20px">✅</span>
+              <span class="file-name" id="dbc-name"></span>
+              <button class="btn-clear" onclick="clearFile(event,'dbc')">✕</button>
+            </div>
+          </div>
+          <div id="dbc-info" style="margin-top:8px;font-size:12px;color:var(--slate-500)"></div>
+        </div>
+      </div>
+
+      <!-- Step 2 — Requirements -->
+      <div class="card">
+        <div class="card-header"><span class="step-num">2</span> Upload Requirements</div>
+        <div class="card-body">
+          <div class="drop-zone" id="req-zone"
+               onclick="document.getElementById('req-input').click()"
+               ondragover="onDragOver(event,'req-zone')"
+               ondragleave="onDragLeave('req-zone')"
+               ondrop="onDrop(event,'req')">
+            <input type="file" id="req-input" accept=".pdf,.txt,.xlsx,.xls" onchange="handleFile(this,'req')">
+            <div id="req-ph">
+              <div class="drop-icon">📋</div>
+              <div class="drop-text"><strong>Click or drag</strong> requirements</div>
+              <div class="drop-hint">PDF, TXT, XLSX or XLS</div>
+            </div>
+            <div id="req-sel" style="display:none" class="file-selected">
+              <span style="font-size:20px">✅</span>
+              <span class="file-name" id="req-name"></span>
+              <button class="btn-clear" onclick="clearFile(event,'req')">✕</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3 — Select & Generate -->
+      <div class="card">
+        <div class="card-header"><span class="step-num">3</span> Select &amp; Generate</div>
+        <div class="card-body">
+          <div id="req-empty-msg" style="text-align:center;color:var(--slate-400);font-size:13px;padding:10px 0">
+            Upload a requirements file to see options here.
+          </div>
+          <div id="req-selector" style="display:none">
+            <div class="req-actions">
+              <button class="btn btn-secondary btn-sm" onclick="selectAll()">Select All</button>
+              <button class="btn btn-secondary btn-sm" onclick="clearAll()">Clear All</button>
+              <span class="req-count" id="req-count">0/0</span>
+            </div>
+            <div class="req-list" id="req-list"></div>
+          </div>
+          <div style="margin-top:14px">
+            <button class="btn btn-primary btn-full" id="gen-btn" onclick="startGen()" disabled>▶ Generate</button>
+            <button class="btn btn-danger btn-full" id="stop-btn" onclick="stopGen()" style="display:none">⏹ Stop</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /sidebar -->
+
+    <!-- RIGHT — RESULTS -->
+    <div class="card" style="min-height:420px">
+
+      <!-- Empty state -->
+      <div id="res-empty" class="empty-state">
+        <div class="empty-icon">🔬</div>
+        <div class="empty-title">Ready to generate</div>
+        <div class="empty-desc">Upload a DBC file, add requirements, then click Generate.</div>
+      </div>
+
+      <!-- Results -->
+      <div id="res-content" style="display:none" class="results-inner">
+
+        <!-- Multi-req pills -->
+        <div id="req-pills" class="req-tabs-bar" style="display:none"></div>
+
+        <!-- Progress -->
+        <div id="prog-wrap" class="progress-section" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <span id="live-indicator" style="display:none"><span class="live-badge"><span class="live-dot"></span>LIVE</span></span>
+            <span></span>
+          </div>
+          <div class="progress-steps" id="prog-steps"></div>
+          <div class="prog-msg" id="prog-msg"></div>
+        </div>
+
+        <!-- Result tabs -->
+        <div id="result-tabs" style="display:none">
+          <div class="tabs">
+            <button class="tab-btn active" id="rt-tc-btn" onclick="switchResTab('tc')">Test Cases</button>
+            <button class="tab-btn" id="rt-capl-btn" onclick="switchResTab('capl')">CAPL Script</button>
+          </div>
+
+          <!-- Test Cases -->
+          <div class="tab-content active" id="rt-tc">
+            <!-- Live streaming view (shown while LLM is running) -->
+            <div id="tc-stream-wrap" style="display:none">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <span class="live-badge"><span class="live-dot"></span>Generating test cases…</span>
+                <span style="font-size:11px;color:var(--slate-400)">raw LLM output</span>
+              </div>
+              <pre class="capl-pre" id="tc-stream" style="max-height:420px;white-space:pre-wrap;word-break:break-word;font-size:12px"></pre>
+            </div>
+            <!-- Formatted cards (shown after generation completes) -->
+            <div id="tc-list-wrap">
+              <div class="toolbar-row">
+                <div class="tc-counter" id="tc-counter" style="margin:0"></div>
+                <div class="toolbar-btns">
+                  <button class="btn btn-secondary btn-sm" onclick="dlTCs()">⬇ Download .txt</button>
+                </div>
+              </div>
+              <div class="tc-list" id="tc-list"></div>
+            </div>
+          </div>
+
+          <!-- CAPL Script -->
+          <div class="tab-content" id="rt-capl">
+            <div class="toolbar-row">
+              <span class="toolbar-label" id="capl-label">CAPL Script</span>
+              <div class="toolbar-btns">
+                <span id="capl-live-badge" style="display:none"><span class="live-badge"><span class="live-dot"></span>Generating…</span></span>
+                <button class="btn btn-secondary btn-sm" onclick="copyEl('capl-pre')">📋 Copy</button>
+                <button class="btn btn-secondary btn-sm" onclick="dlCapl()">⬇ Download .can</button>
+              </div>
+            </div>
+            <pre class="capl-pre" id="capl-pre">// No script yet.</pre>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /results card -->
+
+  </div>
+</div>
+
+<!-- ═══════════ HISTORY PAGE ═══════════ -->
+<div id="page-history" class="page">
+  <div style="max-width:1200px;margin:0 auto">
+    <div class="history-header">
+      <h1 class="page-title">Generation History</h1>
+      <button class="btn btn-secondary" onclick="loadHistory()">🔄 Refresh</button>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Requirement</th><th>Status</th><th>Time (s)</th><th>Date</th><th></th></tr>
+          </thead>
+          <tbody id="hist-body">
+            <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--slate-400)">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODAL ═══════════ -->
+<div id="modal" class="modal-overlay hidden" onclick="bgClose(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-title">Artifact</div>
+        <div class="modal-subtitle" id="modal-sub"></div>
+      </div>
+      <button class="btn-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="tabs">
+        <button class="tab-btn active" id="mt-tc-btn"   onclick="switchModalTab('tc')">Test Cases</button>
+        <button class="tab-btn"        id="mt-capl-btn" onclick="switchModalTab('capl')">CAPL Script</button>
+        <button class="tab-btn"        id="mt-fb-btn"   onclick="switchModalTab('fb')">Feedback</button>
+      </div>
+
+      <!-- Test Cases -->
+      <div class="tab-content active" id="mt-tc">
+        <div class="toolbar-row">
+          <span class="toolbar-label" id="modal-tc-count"></span>
+          <div class="toolbar-btns">
+            <button class="btn btn-secondary btn-sm" onclick="dlModalTCs()">⬇ Download .txt</button>
+          </div>
+        </div>
+        <div class="tc-list" id="modal-tc-list"></div>
+      </div>
+
+      <!-- CAPL -->
+      <div class="tab-content" id="mt-capl">
+        <div class="toolbar-row">
+          <span class="toolbar-label">CAPL Script</span>
+          <div class="toolbar-btns">
+            <button class="btn btn-secondary btn-sm" onclick="copyEl('modal-capl-pre')">📋 Copy</button>
+            <button class="btn btn-secondary btn-sm" onclick="dlModalCapl()">⬇ Download .can</button>
+          </div>
+        </div>
+        <pre class="capl-pre" id="modal-capl-pre"></pre>
+      </div>
+
+      <!-- Feedback -->
+      <div class="tab-content" id="mt-fb">
+        <div id="fb-form">
+          <p style="font-size:13px;color:var(--slate-500);margin-bottom:10px">Rate this generation (1–5 stars):</p>
+          <div class="stars" id="stars">
+            <span class="star" data-v="1" onclick="setStars(1)">★</span>
+            <span class="star" data-v="2" onclick="setStars(2)">★</span>
+            <span class="star" data-v="3" onclick="setStars(3)">★</span>
+            <span class="star" data-v="4" onclick="setStars(4)">★</span>
+            <span class="star" data-v="5" onclick="setStars(5)">★</span>
+          </div>
+          <textarea id="fb-text" class="feedback-textarea" placeholder="Optional comments…"></textarea>
+          <button class="btn btn-primary" onclick="submitFeedback()">Submit Feedback</button>
+        </div>
+        <div id="fb-done" style="display:none;text-align:center;padding:24px;color:var(--green);font-size:15px">
+          ✅ Thank you for your feedback!
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+// ══════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════
+const S = {
+  dbc: { file: null, b64: null, parsed: null },
+  req: { file: null, list: [] },
+  sel: new Set(),
+  generating: false,
+  ctrl: null,
+  results: {},     // pos → { status, testCases, capl, artifactId }
+  activePos: 0,
+  resTab: 'tc',
+  modal: { id: null, rating: 0, tcs: [] },
+};
+
+const PROG_STEPS = [
+  { key: 'parse_dbc',  label: 'Parse DBC' },
+  { key: 'test_cases', label: 'Test Cases' },
+  { key: 'analysis',   label: 'Analysis' },
+  { key: 'capl',       label: 'CAPL Script' },
+];
+const progState = ['pending','pending','pending','pending'];
+
+// ══════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+  if (name === 'history') loadHistory();
+}
+
+// ══════════════════════════════════════════════════
+// FILE UPLOAD
+// ══════════════════════════════════════════════════
+function onDragOver(e, id) { e.preventDefault(); document.getElementById(id).classList.add('drag-over'); }
+function onDragLeave(id)   { document.getElementById(id).classList.remove('drag-over'); }
+function onDrop(e, type) {
+  e.preventDefault(); onDragLeave(type === 'dbc' ? 'dbc-zone' : 'req-zone');
+  const f = e.dataTransfer.files[0]; if (f) processFile(f, type);
+}
+function handleFile(inp, type) { if (inp.files[0]) processFile(inp.files[0], type); }
+
+async function processFile(file, type) {
+  if (type === 'dbc') {
+    S.dbc.file = file;
+    show('dbc-sel'); hide('dbc-ph');
+    document.getElementById('dbc-name').textContent = file.name;
+    document.getElementById('dbc-zone').classList.add('has-file');
+    document.getElementById('dbc-info').textContent = '⏳ Parsing DBC…';
+    try {
+      const fd = new FormData(); fd.append('file', file);
+      const r = await fetch('/api/dbc/parse', { method: 'POST', body: fd });
+      if (!r.ok) throw new Error(await r.text());
+      const d = await r.json();
+      S.dbc.parsed = d;
+      document.getElementById('dbc-info').innerHTML =
+        `✅ <strong>${d.messages?.length ?? 0}</strong> messages · <strong>${d.total_signals ?? 0}</strong> signals`;
+      toast(`DBC parsed — ${d.total_signals ?? 0} signals`, 'success');
+    } catch (e) {
+      document.getElementById('dbc-info').textContent = '❌ ' + e.message;
+      toast('DBC parse failed: ' + e.message, 'error');
+    }
+    S.dbc.b64 = await toBase64(file);
+    updateGenBtn();
+  } else {
+    S.req.file = file;
+    show('req-sel'); hide('req-ph');
+    document.getElementById('req-name').textContent = file.name;
+    document.getElementById('req-zone').classList.add('has-file');
+    try {
+      const fd = new FormData(); fd.append('file', file);
+      const r = await fetch('/api/requirements/parse', { method: 'POST', body: fd });
+      if (!r.ok) throw new Error(await r.text());
+      const d = await r.json();
+      S.req.list = d.requirements || [];
+      S.sel = new Set();
+      renderReqs();
+      toast(`${S.req.list.length} requirements loaded`, 'success');
+    } catch (e) { toast('Requirements parse failed: ' + e.message, 'error'); }
+    updateGenBtn();
+  }
+}
+
+function clearFile(e, type) {
+  e.stopPropagation();
+  if (type === 'dbc') {
+    S.dbc = { file: null, b64: null, parsed: null };
+    show('dbc-ph'); hide('dbc-sel');
+    document.getElementById('dbc-zone').classList.remove('has-file');
+    document.getElementById('dbc-info').textContent = '';
+    document.getElementById('dbc-input').value = '';
+  } else {
+    S.req = { file: null, list: [] }; S.sel = new Set();
+    show('req-ph'); hide('req-sel');
+    document.getElementById('req-zone').classList.remove('has-file');
+    document.getElementById('req-input').value = '';
+    renderReqs();
+  }
+  updateGenBtn();
+}
+
+function toBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+// ══════════════════════════════════════════════════
+// REQUIREMENTS LIST
+// ══════════════════════════════════════════════════
+function renderReqs() {
+  const hasList = S.req.list.length > 0;
+  toggle('req-selector', hasList); toggle('req-empty-msg', !hasList);
+  if (!hasList) return;
+  document.getElementById('req-list').innerHTML = S.req.list.map((txt, i) => `
+    <div class="req-item ${S.sel.has(i) ? 'checked' : ''}" onclick="toggleReq(${i})">
+      <input type="checkbox" ${S.sel.has(i) ? 'checked' : ''} onclick="(e)=>e.stopPropagation()">
+      <span class="req-text">${esc(txt)}</span>
+    </div>`).join('');
+  document.getElementById('req-count').textContent = `${S.sel.size}/${S.req.list.length}`;
+}
+
+function toggleReq(i) { S.sel.has(i) ? S.sel.delete(i) : S.sel.add(i); renderReqs(); updateGenBtn(); }
+function selectAll() { S.req.list.forEach((_, i) => S.sel.add(i)); renderReqs(); updateGenBtn(); }
+function clearAll()  { S.sel.clear(); renderReqs(); updateGenBtn(); }
+function updateGenBtn() {
+  const ok = !!S.dbc.b64 && S.sel.size > 0 && !S.generating;
+  const btn = document.getElementById('gen-btn');
+  btn.disabled = !ok;
+  btn.textContent = S.sel.size > 1 ? `▶ Generate (${S.sel.size} reqs)` : '▶ Generate';
+}
+
+// ══════════════════════════════════════════════════
+// GENERATION
+// ══════════════════════════════════════════════════
+async function startGen() {
+  S.generating = true; S.ctrl = new AbortController(); S.results = {}; S.activePos = 0;
+  hide('gen-btn'); show('stop-btn');
+  hide('res-empty'); show('res-content');
+
+  const arr = Array.from(S.sel).sort((a, b) => a - b);
+
+  const pillBar = document.getElementById('req-pills');
+  if (arr.length > 1) {
+    pillBar.style.display = 'flex';
+    pillBar.innerHTML = arr.map((_, pos) =>
+      `<button class="req-tab-pill" id="rpill-${pos}" onclick="switchReqPill(${pos})">Req ${pos+1}</button>`
+    ).join('');
+  } else { pillBar.style.display = 'none'; }
+
+  arr.forEach((_, pos) => { S.results[pos] = { status: 'pending', testCases: [], capl: '', artifactId: null }; });
+
+  for (let pos = 0; pos < arr.length; pos++) {
+    if (S.ctrl.signal.aborted) break;
+    S.activePos = pos;
+    activatePill(pos, arr.length);
+    await genOne(pos, S.req.list[arr[pos]]);
+  }
+  stopGen();
+}
+
+function activatePill(pos, total) {
+  if (total <= 1) return;
+  document.querySelectorAll('.req-tab-pill').forEach((b, i) => b.classList.toggle('active', i === pos));
+}
+
+async function genOne(pos, reqText) {
+  const res = S.results[pos];
+  res.status = 'active';
+  showProg(true);
+  hide('result-tabs');
+
+  try {
+    const resp = await fetch('/api/generate/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requirement: reqText, dbc_b64: S.dbc.b64 }),
+      signal: S.ctrl.signal,
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '', evType = 'message', evData = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (line.startsWith('event:')) { evType = line.slice(6).trim(); }
+        else if (line.startsWith('data:')) { evData = line.slice(5).trim(); }
+        else if (line.trim() === '') {
+          if (evData) { try { handleEvent(pos, evType, JSON.parse(evData)); } catch (_) {} }
+          evType = 'message'; evData = '';
+        }
+      }
+    }
+    res.status = 'done';
+    const pill = document.getElementById('rpill-' + pos);
+    if (pill) pill.classList.add('done');
+  } catch (e) {
+    if (e.name === 'AbortError') return;
+    res.status = 'error';
+    toast('Error: ' + e.message, 'error');
+    progState.forEach((_, i) => { if (progState[i] === 'active') progState[i] = 'error'; });
+    renderProg();
+  }
+
+  hide('live-indicator');
+  renderResForPos(pos);
+  showProg(false);
+  show('result-tabs');
+}
+
+function handleEvent(pos, type, data) {
+  const res = S.results[pos];
+  switch (type) {
+
+    case 'status': {
+      const map = { parsing_dbc: 0, parse_dbc: 0, test_cases: 1, analysis: 2, capl: 3 };
+      const idx = map[data.step] ?? 0;
+      for (let i = 0; i < idx; i++) progState[i] = 'done';
+      progState[idx] = 'active';
+      renderProg();
+      document.getElementById('prog-msg').textContent = data.message || '';
+      show('live-indicator');
+      // Reset stream panels on step change
+      if (data.step === 'test_cases') {
+        document.getElementById('tc-stream').textContent = '';
+        hide('tc-list-wrap');
+        show('tc-stream-wrap');
+        show('result-tabs');
+        switchResTab('tc');
+      }
+      if (data.step === 'capl') {
+        document.getElementById('capl-pre').textContent = '';
+        show('capl-live-badge');
+        show('result-tabs');
+        // Auto-switch to CAPL tab when CAPL starts generating
+        switchResTab('capl');
+      }
+      break;
+    }
+
+    case 'tc_token': {
+      // Replace raw stream pre with latest accumulated LLM output
+      const streamPre = document.getElementById('tc-stream');
+      streamPre.textContent = data.text;
+      streamPre.scrollTop = streamPre.scrollHeight;
+      break;
+    }
+
+    case 'test_cases_done': {
+      res.testCases = data.test_cases || [];
+      progState[1] = 'done'; renderProg();
+      // Hide raw stream, show formatted cards
+      hide('tc-stream-wrap');
+      show('tc-list-wrap');
+      document.getElementById('tc-counter').textContent =
+        `${res.testCases.length} test case${res.testCases.length !== 1 ? 's' : ''} generated`;
+      streamTCsIntoList(res.testCases, 'tc-list');
+      break;
+    }
+
+    case 'analysis_done':
+      progState[2] = 'done'; renderProg();
+      break;
+
+    case 'capl_token': {
+      // Replace CAPL pre with latest accumulated output (auto-scroll)
+      const caplPre = document.getElementById('capl-pre');
+      caplPre.textContent = data.text;
+      caplPre.scrollTop = caplPre.scrollHeight;
+      break;
+    }
+
+    case 'capl_done': {
+      res.capl = data.capl_script || '';
+      progState[3] = 'done'; renderProg();
+      hide('capl-live-badge');
+      const pre = document.getElementById('capl-pre');
+      pre.textContent = res.capl;
+      pre.scrollTop = 0;
+      break;
+    }
+
+    case 'done':
+      res.artifactId = data.artifact_id;
+      progState.forEach((_, i) => progState[i] = 'done'); renderProg();
+      toast('Generation complete!', 'success');
+      break;
+
+    case 'error':
+      toast((data.step || '') + ': ' + (data.message || 'Unknown error'), 'error');
+      break;
+  }
+}
+
+function stopGen() {
+  if (S.ctrl) S.ctrl.abort();
+  S.generating = false; S.ctrl = null;
+  hide('live-indicator');
+  show('gen-btn'); hide('stop-btn');
+  updateGenBtn();
+}
+
+// ══════════════════════════════════════════════════
+// PROGRESS
+// ══════════════════════════════════════════════════
+function showProg(on) {
+  toggle('prog-wrap', on);
+  if (on) { progState.fill('pending'); renderProg(); document.getElementById('prog-msg').textContent = ''; }
+}
+
+function renderProg() {
+  document.getElementById('prog-steps').innerHTML = PROG_STEPS.map((s, i) => {
+    const st = progState[i];
+    const icon = st === 'done' ? '✓' : st === 'error' ? '✕' : st === 'active' ? '<span class="spin">↻</span>' : '○';
+    return `<div class="prog-step ${st}"><div class="prog-icon">${icon}</div><div class="prog-label">${s.label}</div></div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════
+// TEST CASE STREAMING (animate in one by one)
+// ══════════════════════════════════════════════════
+function streamTCsIntoList(tcs, containerId) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  tcs.forEach((tc, i) => {
+    setTimeout(() => {
+      container.insertAdjacentHTML('beforeend', buildTC(tc, containerId + '-' + i));
+    }, i * 180);
+  });
+}
+
+// ══════════════════════════════════════════════════
+// TEST CASE CARD BUILDER — uses new field format
+// ══════════════════════════════════════════════════
+function buildTC(tc, uid) {
+  const id         = tc.test_case_id   || tc.test_id   || tc.id   || 'TC_???';
+  const objective  = tc.test_objective || tc.description || tc.name || '';
+  const technique  = tc.test_case_design_techniques || tc.design_technique || '';
+  const rawType    = (tc.test_case_type || tc.test_type || tc.type || '').toLowerCase();
+  const typeLabel  = tc.test_case_type  || tc.test_type  || tc.type  || 'Test';
+
+  const preConds   = arr(tc.pre_conditions || tc.preconditions || tc.precondition);
+  const steps      = arr(tc.test_steps     || tc.steps);
+  const expected   = arr(tc.expected_output|| (tc.expected_result ? [tc.expected_result] : null) || (tc.expected ? [tc.expected] : null));
+
+  const bcls = rawType.includes('neg') ? 'badge-neg'
+             : rawType.includes('bound') || rawType.includes('edge') ? 'badge-edge'
+             : rawType.includes('state') ? 'badge-info'
+             : 'badge-pos';
+
+  const listHtml = items => `<ol class="tc-ol">${items.map(s => `<li>${esc(s2s(s))}</li>`).join('')}</ol>`;
+
+  const body = [
+    objective ? `<div class="tc-field"><div class="tc-field-label">Objective</div><div class="tc-field-value">${esc(objective)}</div></div>` : '',
+    technique ? `<div class="tc-field"><div class="tc-field-label">Design Technique</div><div class="tc-field-value">${esc(technique)}</div></div>` : '',
+    preConds.length ? `<div class="tc-field"><div class="tc-field-label">Pre-conditions</div>${listHtml(preConds)}</div>` : '',
+    steps.length    ? `<div class="tc-field"><div class="tc-field-label">Test Steps</div>${listHtml(steps)}</div>` : '',
+    expected.length ? `<div class="tc-field"><div class="tc-field-label">Expected Output</div>${listHtml(expected)}</div>` : '',
+  ].join('');
+
+  return `<div class="tc-card" id="tc-${uid}">
+    <div class="tc-header" onclick="toggleTC('${uid}')">
+      <span class="tc-id">${esc(id)}</span>
+      <span class="badge ${bcls}">${esc(typeLabel)}</span>
+      <span class="tc-objective">${esc(objective)}</span>
+      <span class="tc-chevron">▼</span>
+    </div>
+    <div class="tc-body">${body}</div>
+  </div>`;
+}
+
+function toggleTC(uid) { document.getElementById('tc-' + uid).classList.toggle('open'); }
+function arr(v) { if (!v) return []; if (Array.isArray(v)) return v; return [v]; }
+function s2s(v)  { return typeof v === 'string' ? v : JSON.stringify(v); }
+
+// ══════════════════════════════════════════════════
+// RESULTS PANEL
+// ══════════════════════════════════════════════════
+function switchReqPill(pos) {
+  S.activePos = pos;
+  activatePill(pos, Object.keys(S.results).length);
+  renderResForPos(pos);
+}
+
+function switchResTab(tab) {
+  S.resTab = tab;
+  document.getElementById('rt-tc-btn').classList.toggle('active', tab === 'tc');
+  document.getElementById('rt-capl-btn').classList.toggle('active', tab === 'capl');
+  document.getElementById('rt-tc').classList.toggle('active', tab === 'tc');
+  document.getElementById('rt-capl').classList.toggle('active', tab === 'capl');
+}
+
+function renderResForPos(pos) {
+  const res = S.results[pos]; if (!res) return;
+  // Test cases
+  hide('tc-stream-wrap');
+  show('tc-list-wrap');
+  const tcs = res.testCases || [];
+  document.getElementById('tc-counter').textContent =
+    tcs.length ? `${tcs.length} test case${tcs.length !== 1 ? 's' : ''} generated` : '';
+  streamTCsIntoList(tcs, 'tc-list');
+  // CAPL
+  hide('capl-live-badge');
+  document.getElementById('capl-pre').textContent = res.capl || '// No CAPL script generated.';
+  show('result-tabs');
+}
+
+// ══════════════════════════════════════════════════
+// DOWNLOAD — TEST CASES (.txt)
+// ══════════════════════════════════════════════════
+function formatTCsTxt(tcs) {
+  return tcs.map((tc, i) => {
+    const id        = tc.test_case_id   || tc.test_id   || tc.id   || `TC_${String(i+1).padStart(3,'0')}`;
+    const objective = tc.test_objective || tc.description || tc.name || '';
+    const typeLabel = tc.test_case_type  || tc.test_type  || tc.type  || '';
+    const normalized = {
+      test_case_id:                 id,
+      test_objective:               objective,
+      test_case_design_techniques:  tc.test_case_design_techniques || tc.design_technique || '',
+      pre_conditions:               arr(tc.pre_conditions || tc.preconditions || tc.precondition),
+      test_case_type:               typeLabel,
+      test_steps:                   arr(tc.test_steps || tc.steps),
+      expected_output:              arr(tc.expected_output || (tc.expected_result ? [tc.expected_result] : null) || (tc.expected ? [tc.expected] : [])),
+    };
+    const sep = '='.repeat(70);
+    return `${sep}\n${id}: ${objective}\nType: ${typeLabel}\n${sep}\n${JSON.stringify(normalized, null, 2)}`;
+  }).join('\n\n');
+}
+
+function dlTCs() {
+  const res = S.results[S.activePos];
+  const tcs = res?.testCases || [];
+  if (!tcs.length) { toast('No test cases to download', 'error'); return; }
+  const aid = res?.artifactId;
+  dlText(formatTCsTxt(tcs), aid ? `test_cases_artifact_${aid}.txt` : 'test_cases.txt');
+  toast('Test cases downloaded', 'success');
+}
+
+function dlModalTCs() {
+  if (!S.modal.tcs.length) { toast('No test cases to download', 'error'); return; }
+  dlText(formatTCsTxt(S.modal.tcs), `test_cases_artifact_${S.modal.id || 0}.txt`);
+  toast('Test cases downloaded', 'success');
+}
+
+// ══════════════════════════════════════════════════
+// DOWNLOAD — CAPL (.can)
+// ══════════════════════════════════════════════════
+function copyEl(id) {
+  navigator.clipboard.writeText(document.getElementById(id).textContent)
+    .then(() => toast('Copied to clipboard', 'info'));
+}
+
+function dlCapl() {
+  const txt = document.getElementById('capl-pre').textContent;
+  const aid = S.results[S.activePos]?.artifactId;
+  dlText(txt, aid ? `capl_artifact_${aid}.can` : 'capl_script.can');
+  toast('CAPL script downloaded', 'success');
+}
+
+function dlModalCapl() {
+  dlText(document.getElementById('modal-capl-pre').textContent, `capl_artifact_${S.modal.id || 0}.can`);
+  toast('CAPL script downloaded', 'success');
+}
+
+function dlText(txt, fname) {
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([txt], { type: 'text/plain' })),
+    download: fname,
+  });
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+// ══════════════════════════════════════════════════
+// HISTORY
+// ══════════════════════════════════════════════════
+async function loadHistory() {
+  const tb = document.getElementById('hist-body');
+  tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--slate-400)">Loading…</td></tr>';
+  try {
+    const r = await fetch('/api/artifacts?limit=50&offset=0');
+    if (!r.ok) throw new Error(await r.text());
+    const arts = await r.json();
+    if (!arts.length) {
+      tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--slate-400)">No history yet.</td></tr>';
+      return;
+    }
+    tb.innerHTML = arts.map(a => {
+      const ok = a.status === 'success';
+      const dt = a.created_at ? new Date(a.created_at).toLocaleString() : '—';
+      const t  = a.generation_time_seconds != null ? a.generation_time_seconds.toFixed(1) : '—';
+      return `<tr>
+        <td class="id-cell">#${a.id}</td>
+        <td><div class="req-cell">${esc(a.requirement_text || '—')}</div></td>
+        <td><span class="dot ${ok ? 'dot-ok' : 'dot-err'}"></span>${esc(a.status || '—')}</td>
+        <td>${t}</td><td style="white-space:nowrap">${dt}</td>
+        <td><button class="btn btn-secondary btn-sm" onclick="openArtifact(${a.id})">View</button></td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    tb.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--red)">Error: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+async function openArtifact(id) {
+  S.modal.id = id; S.modal.rating = 0; S.modal.tcs = [];
+  document.getElementById('modal-title').textContent = `Artifact #${id}`;
+  document.getElementById('modal-sub').textContent = 'Loading…';
+  document.getElementById('modal-tc-count').textContent = '';
+  document.getElementById('modal').classList.remove('hidden');
+  switchModalTab('tc');
+  try {
+    const r = await fetch(`/api/artifacts/${id}`);
+    if (!r.ok) throw new Error(await r.text());
+    const a = await r.json();
+    document.getElementById('modal-sub').textContent = a.requirement_text || '';
+    let tcs = a.test_cases;
+    if (typeof tcs === 'string') try { tcs = JSON.parse(tcs); } catch (_) { tcs = []; }
+    tcs = Array.isArray(tcs) ? tcs : (tcs?.test_cases || []);
+    S.modal.tcs = tcs;
+    document.getElementById('modal-tc-count').textContent =
+      tcs.length ? `${tcs.length} test case${tcs.length !== 1 ? 's' : ''}` : '';
+    streamTCsIntoList(tcs, 'modal-tc-list');
+    document.getElementById('modal-capl-pre').textContent = a.capl_code || '// No CAPL script.';
+    show('fb-form'); hide('fb-done');
+    document.getElementById('fb-text').value = '';
+    setStars(0);
+  } catch (e) { document.getElementById('modal-sub').textContent = 'Error: ' + e.message; }
+}
+
+function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+function bgClose(e)   { if (e.target === document.getElementById('modal')) closeModal(); }
+
+function switchModalTab(tab) {
+  ['tc','capl','fb'].forEach(t => {
+    document.getElementById(`mt-${t}-btn`).classList.toggle('active', t === tab);
+    document.getElementById(`mt-${t}`).classList.toggle('active', t === tab);
+  });
+}
+
+// ══════════════════════════════════════════════════
+// FEEDBACK
+// ══════════════════════════════════════════════════
+function setStars(v) {
+  S.modal.rating = v;
+  document.querySelectorAll('.star').forEach(s => s.classList.toggle('on', +s.dataset.v <= v));
+}
+
+async function submitFeedback() {
+  if (!S.modal.rating) { toast('Please choose a star rating', 'error'); return; }
+  try {
+    const r = await fetch(`/api/artifacts/${S.modal.id}/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ score: S.modal.rating, text: document.getElementById('fb-text').value }),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    hide('fb-form'); show('fb-done');
+    toast('Feedback submitted', 'success');
+  } catch (e) { toast('Submit failed: ' + e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+// ══════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════
+function show(id)       { document.getElementById(id).style.display = ''; }
+function hide(id)       { document.getElementById(id).style.display = 'none'; }
+function toggle(id, on) { document.getElementById(id).style.display = on ? '' : 'none'; }
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Init
+renderProg();
+</script>
+</body>
+</html>

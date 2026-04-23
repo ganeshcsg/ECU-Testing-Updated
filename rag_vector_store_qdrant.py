@@ -63,7 +63,7 @@ except ImportError:
 
 # Default collection name and embedding model
 DEFAULT_COLLECTION_NAME = "rag_ecu"
-DEFAULT_EMBEDDING_MODEL = "BAAI/bge-code-v1"
+DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 # Default persistent storage path (use None or ":memory:" for in-memory)
 DEFAULT_QDRANT_PATH = "./qdrant_data"
 
